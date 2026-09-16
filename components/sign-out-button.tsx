@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+
+import { AppIcon } from "@/components/ui/app-icon";
+import { Tooltip } from "@/components/ui/tooltip";
 import { createClient } from "@/lib/supabase/client";
 
 interface SignOutButtonProps {
@@ -9,15 +12,21 @@ interface SignOutButtonProps {
   variant?: "icon" | "full" | "subtle";
 }
 
-export function SignOutButton({ className, variant = "subtle" }: SignOutButtonProps) {
+export function SignOutButton({
+  className,
+  variant = "subtle",
+}: SignOutButtonProps) {
   const [isSigningOut, setIsSigningOut] = useState(false);
   const router = useRouter();
 
   const handleSignOut = async () => {
     try {
       setIsSigningOut(true);
+
       const supabase = createClient();
+
       await supabase.auth.signOut();
+
       router.push("/login");
       router.refresh();
     } catch (err) {
@@ -28,52 +37,37 @@ export function SignOutButton({ className, variant = "subtle" }: SignOutButtonPr
 
   if (variant === "icon") {
     return (
-      <button
-        onClick={handleSignOut}
-        disabled={isSigningOut}
-        title="Sign Out"
-        aria-label="Sign Out"
-        className={`inline-flex items-center justify-center p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50 cursor-pointer ${className || ""}`}
+      <Tooltip
+        content={isSigningOut ? "Signing out..." : "Sign out"}
+        side="top"
       >
-        <svg
-          className="size-4"
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-          strokeWidth="2"
-          stroke="currentColor"
+        <button
+          type="button"
+          onClick={handleSignOut}
+          disabled={isSigningOut}
+          aria-label="Sign out"
+          className={`inline-flex items-center justify-center rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:cursor-not-allowed disabled:opacity-50 ${
+            className || ""
+          }`}
         >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l3 3m0 0l-3 3m3-3H2.25"
-          />
-        </svg>
-      </button>
+          <AppIcon name="log-out" size="sm" />
+        </button>
+      </Tooltip>
     );
   }
 
   return (
     <button
+      type="button"
       onClick={handleSignOut}
       disabled={isSigningOut}
-      className={`flex w-full items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50 cursor-pointer ${className || ""}`}
+      className={`flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:cursor-not-allowed disabled:opacity-50 ${
+        className || ""
+      }`}
     >
       <span className="flex items-center gap-2">
-        <svg
-          className="size-4"
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-          strokeWidth="2"
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l3 3m0 0l-3 3m3-3H2.25"
-          />
-        </svg>
+        <AppIcon name="log-out" size="sm" />
+
         {isSigningOut ? "Signing out..." : "Sign Out"}
       </span>
     </button>

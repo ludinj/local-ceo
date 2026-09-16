@@ -185,19 +185,19 @@ Company-scoped Database
 
 ## 6. Recommended Development Roadmap
 
-| Phase                  | Scope                                                                           | Status          |
-| :--------------------- | :------------------------------------------------------------------------------ | :-------------- |
-| **1. Foundation**      | Next.js project, UI foundation, Tailwind CSS, shadcn/ui                         | **Completed**   |
-| **2. Authentication**  | Supabase SSR foundation, Google OAuth login, sessions, logout, protected routes | **In Progress** |
-| **3. Organizations**   | Create company, company list, company selection, memberships                    | Planned         |
-| **4. RBAC**            | Roles, permissions, protected routes, server-side authorization                 | Planned         |
-| **5. Invitations**     | Invite users, accept invitations, membership creation                           | Planned         |
-| **6. Business Core**   | Products, inventory, customers, invoices, and sales                             | Planned         |
-| **7. Dashboard**       | Revenue, sales, inventory, and business metrics                                 | Planned         |
-| **8. Local CEO Agent** | AI chat + company context + read-only business tools                            | Planned         |
-| **9. AI Actions**      | Recommendations, approvals, and controlled write operations                     | Planned         |
-| **10. More Agents**    | Accountant, Marketing, HR, and specialized AI agents                            | Planned         |
-| **11. Employees**      | Employee management and human-AI agent collaboration                            | Planned         |
+| Phase                  | Scope                                                                           | Status        |
+| :--------------------- | :------------------------------------------------------------------------------ | :------------ |
+| **1. Foundation**      | Next.js project, UI foundation, Tailwind CSS, shadcn/ui                         | **Completed** |
+| **2. Authentication**  | Supabase SSR foundation, Google OAuth login, sessions, logout, protected routes | **Completed** |
+| **3. Organizations**   | Create company, company list, company selection, memberships                    | Planned       |
+| **4. RBAC**            | Roles, permissions, protected routes, server-side authorization                 | Planned       |
+| **5. Invitations**     | Invite users, accept invitations, membership creation                           | Planned       |
+| **6. Business Core**   | Products, inventory, customers, invoices, and sales                             | Planned       |
+| **7. Dashboard**       | Revenue, sales, inventory, and business metrics                                 | Planned       |
+| **8. Local CEO Agent** | AI chat + company context + read-only business tools                            | Planned       |
+| **9. AI Actions**      | Recommendations, approvals, and controlled write operations                     | Planned       |
+| **10. More Agents**    | Accountant, Marketing, HR, and specialized AI agents                            | Planned       |
+| **11. Employees**      | Employee management and human-AI agent collaboration                            | Planned       |
 
 ### Phase 2 — Authentication Breakdown
 
