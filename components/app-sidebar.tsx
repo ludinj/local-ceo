@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { SignOutButton } from "@/components/sign-out-button";
+import { AppIcon } from "./ui/app-icon";
 
 interface AppSidebarProps {
   userEmail?: string;
@@ -26,39 +27,13 @@ export function AppSidebar({ userEmail, userName }: AppSidebarProps) {
             href="/home"
             className="flex items-center gap-3 rounded-lg bg-sidebar-accent px-3 py-2 text-sm font-medium text-sidebar-accent-foreground transition-colors"
           >
-            <svg
-              className="size-4 text-sidebar-primary"
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth="2"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"
-              />
-            </svg>
+            <AppIcon name="home" size="sm" className="text-sidebar-primary" />
             Home
           </Link>
 
           <div className="flex items-center justify-between rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground/60 cursor-not-allowed">
             <span className="flex items-center gap-3">
-              <svg
-                className="size-4"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                strokeWidth="2"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21"
-                />
-              </svg>
+              <AppIcon name="building" size="sm" />
               Companies
             </span>
             <span className="text-[10px] font-semibold tracking-wide uppercase bg-sidebar-accent/50 px-1.5 py-0.5 rounded text-muted-foreground/50">
