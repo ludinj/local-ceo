@@ -238,37 +238,27 @@ UNIQUE(userId, companyId)
 
 ---
 
-## EXACT NEXT TASK
+## Phase 3.2 — Application User Synchronization (Completed)
 
-### Phase 3.2 — Application User Synchronization
+### Completed
 
-Connect the authenticated Supabase identity to the application `User`.
-
-Expected mapping:
-
-```text
-Supabase auth.users.id
-          =
-public.User.id
-```
-
-Requirements:
-
-1. Read authenticated identity server-side.
-2. Extract Supabase user UUID.
-3. Find or create matching application `User`.
-4. Persist email.
-5. Persist Google display name when available.
-6. Prevent duplicate application users.
-7. Verify repeated logins remain idempotent.
-
-Do not implement Company creation until application User synchronization works reliably.
+- [x] Reusable server-side user synchronization helper created:
+  - `lib/auth/sync-user.ts` (`syncApplicationUser()`)
+- [x] Identity mapping established: `public.User.id` = `Supabase auth.users.id` (UUID).
+- [x] Persists authenticated `email` and derives Google OAuth display name when available (fallback to email username).
+- [x] Uses concurrency-safe Prisma `upsert` strategy to create user on first login and update safe profile fields on repeated access.
+- [x] Idempotent across repeated logins and page reloads (user count does not increase for the same user).
+- [x] Fails clearly when invoked without an active authenticated session or missing email.
+- [x] Kept all Prisma database operations strictly server-side.
+- [x] Integrated at application entry point (`app/home/page.tsx`).
 
 ---
 
-## Later Phase 3 Tasks
+## EXACT NEXT TASK
 
 ### Phase 3.3 — Company Creation
+
+Create companies and establish owner membership atomically.
 
 Expected flow:
 
@@ -283,6 +273,8 @@ role = OWNER
 ```
 
 Company and Owner membership should be created atomically.
+
+Do not implement Phase 3.3 yet.
 
 ### Phase 3.4 — Company Listing
 

@@ -362,7 +362,7 @@ Email/password authentication and password recovery remain intentionally deferre
 
 ```text
 3.1 Prisma + Supabase DB Foundation      → Completed
-3.2 Application User Synchronization     → Planned
+3.2 Application User Synchronization     → Completed
 3.3 Company Creation                     → Planned
 3.4 Company Listing                      → Planned
 3.5 Company Context & Membership Check   → Planned
