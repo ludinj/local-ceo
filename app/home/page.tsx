@@ -2,7 +2,8 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { syncApplicationUser } from "@/lib/auth/sync-user";
 import { AppSidebar } from "@/components/app-sidebar";
-import { CompanyCard } from "@/components/company-card";
+import { CompanyCard } from "@/components/companies/company-card";
+import { CompanyCreateCard } from "@/components/companies/company-create-card";
 import { Typography } from "@/components/ui/typography";
 import { SignOutButton } from "@/components/sign-out-button";
 
@@ -85,7 +86,7 @@ export default async function HomePage() {
             <div className="flex items-center justify-between">
               <Typography variant="header-3">Your Companies</Typography>
               <Typography variant="muted" className="text-xs">
-                3 Demo Companies
+                {DUMMY_COMPANIES.length + 1} workspace options
               </Typography>
             </div>
 
@@ -98,6 +99,8 @@ export default async function HomePage() {
                   role={company.role}
                 />
               ))}
+
+              <CompanyCreateCard />
             </div>
           </section>
         </div>

@@ -258,23 +258,25 @@ UNIQUE(userId, companyId)
 
 ### Phase 3.3 — Company Creation
 
-Create companies and establish owner membership atomically.
+Completed.
 
-Expected flow:
+The company creation flow remains anchored on the working server-side action and Prisma transaction, but the user journey has been refactored to the `/home` workspace area through a modal-based create flow.
 
-```text
-Authenticated User
-        ↓
-Create Company
-        ↓
-Create CompanyMembership
-        ↓
-role = OWNER
-```
+Implemented behavior:
 
-Company and Owner membership should be created atomically.
-
-Do not implement Phase 3.3 yet.
+- Company model includes `name`, `legalName`, `slug`, `countryCode`, `registrationNumber`, and `industry`.
+- Migration name: `extend_company_profile`.
+- Creation entry now lives in the home company grid via a dedicated create card and modal, not a standalone `/companies/new` route.
+- Shared validation schema: `lib/validations/company.ts`.
+- React Hook Form implementation: `components/companies/company-form.tsx`.
+- Home trigger: `components/companies/company-create-card.tsx`.
+- Server-side creation operation: `lib/actions/company.ts`.
+- Server identity determines ownership and no `userId` is accepted from the browser.
+- Slug generation is server-side and handles existing slug collisions by adding numeric suffixes.
+- Registration number is generic and international; VE displays `RIF` in the UI without changing the storage field name.
+- Country selection uses a library-backed picker while preserving the stored 2-letter country code contract.
+- Validation, authentication, and loading states are handled in the form and server action.
+- The transaction creates the company and owner membership atomically.
 
 ### Phase 3.4 — Company Listing
 
