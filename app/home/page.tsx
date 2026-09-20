@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { syncApplicationUser } from "@/lib/auth/sync-user";
 import { AppSidebar } from "@/components/app-sidebar";
 import { CompanyCard } from "@/components/company-card";
 import { Typography } from "@/components/ui/typography";
@@ -39,18 +40,11 @@ export default async function HomePage() {
     redirect("/login");
   }
 
-  // Retrieve user for unobtrusive identity display
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Synchronize authenticated user with application PostgreSQL database
+  const appUser = await syncApplicationUser();
 
-  const userEmail =
-    user?.email || (claimsData?.claims?.email as string) || "User";
-  const userName =
-    user?.user_metadata?.full_name ||
-    user?.user_metadata?.name ||
-    userEmail.split("@")[0] ||
-    "User";
+  const userEmail = appUser.email;
+  const userName = appUser.name || userEmail.split("@")[0] || "User";
 
   return (
     <div className="flex min-h-screen bg-background text-foreground">
