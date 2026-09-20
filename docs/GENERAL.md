@@ -74,6 +74,20 @@ The application database stores Local CEO-specific user data, companies, members
 - `Company`: Multi-tenant organization entity.
 - `CompanyMembership`: Join entity connecting `User` and `Company` with membership-specific role metadata.
 
+### Current Company Model
+
+```text
+id
+name
+legalName
+slug
+countryCode
+registrationNumber
+industry
+createdAt
+updatedAt
+```
+
 ### Future Core Entities
 
 - `Invitation`: Pending organization invitation tokens.
@@ -363,7 +377,7 @@ Email/password authentication and password recovery remain intentionally deferre
 ```text
 3.1 Prisma + Supabase DB Foundation      → Completed
 3.2 Application User Synchronization     → Completed
-3.3 Company Creation                     → Planned
+3.3 Company Creation                     → Completed
 3.4 Company Listing                      → Planned
 3.5 Company Context & Membership Check   → Planned
 ```
