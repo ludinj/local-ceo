@@ -2,10 +2,10 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { syncApplicationUser } from "@/lib/auth/sync-user";
 import { AppSidebar } from "@/components/app-sidebar";
-import { CompanyCard } from "@/components/companies/company-card";
-import { CompanyCreateCard } from "@/components/companies/company-create-card";
 import { Typography } from "@/components/ui/typography";
 import { SignOutButton } from "@/components/sign-out-button";
+import { CompanyCreateCard } from "@/features/companies/components/company-create-card";
+import { CompanyCard } from "@/features/companies/components/company-card";
 
 // Temporary UI-only placeholder.
 // Real companies will come from CompanyMembership in Phase 3.
