@@ -268,8 +268,8 @@ Implemented behavior:
 - Migration name: `extend_company_profile`.
 - Creation entry now lives in the home company grid via a dedicated create card and modal, not a standalone `/companies/new` route.
 - Shared validation schema: `lib/validations/company.ts`.
-- React Hook Form implementation: `components/companies/company-form.tsx`.
-- Home trigger: `components/companies/company-create-card.tsx`.
+- React Hook Form implementation: `features/companies/components/company-form.tsx`.
+- Home trigger: `features/companies/components/company-create-card.tsx`.
 - Server-side creation operation: `lib/actions/company.ts`.
 - Server identity determines ownership and no `userId` is accepted from the browser.
 - Slug generation is server-side and handles existing slug collisions by adding numeric suffixes.
@@ -285,12 +285,19 @@ Completed implementation:
 - Replaced the temporary `/home` company cards with real server-side company records loaded through `CompanyMembership`.
 - Added server-side list queries and industry discovery scoped to the authenticated application user.
 - Added URL-driven search, industry filtering, and pagination using the home query string contract.
-- Kept ordering fixed to company name ascending and avoided any client-side filtering or browser-only Prisma access.
-- Added a reusable skeleton loading state and used a Suspense boundary in the home page.
-- Kept the company creation flow and refresh behavior aligned with the working Phase 3.3 implementation.
-- Verified the implementation with lint, type-check, and production build commands.
+- Search is debounced in the UI but filtering is executed server-side in PostgreSQL.
+- Industry options are derived from the current user's actual companies.
+- Pagination uses a page size of 12.
+- Ordering is fixed to company name ascending.
+- Added a reusable skeleton loading state and Suspense boundary.
+- Company creation refreshes the current route so newly created companies appear immediately.
+- Company-specific UI lives under `features/companies/components`.
+- Shared UI primitives from `components/ui` should be reused when an appropriate component already exists.
+- Verified with lint, type-check, and production build commands.
 
 ### Phase 3.5 — Company Context
+
+Introduce company selection/context and server-side membership verification.
 
 Introduce company selection/context and server-side membership verification.
 
