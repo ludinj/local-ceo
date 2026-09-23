@@ -378,7 +378,7 @@ Email/password authentication and password recovery remain intentionally deferre
 3.1 Prisma + Supabase DB Foundation      → Completed
 3.2 Application User Synchronization     → Completed
 3.3 Company Creation                     → Completed
-3.4 Company Listing                      → Planned
+3.4 Company Listing                      → Completed
 3.5 Company Context & Membership Check   → Planned
 ```
 
@@ -425,7 +425,10 @@ Completed:
 6. **Progressive data modeling**  
    Business tables are introduced when their corresponding features are implemented rather than designing the entire future schema upfront.
 
-7. **AI is a controlled application layer**  
+7. **Shared UI primitives first**  
+   Feature code should reuse existing components from `components/ui` whenever an appropriate shared primitive exists. Do not recreate inputs, selectors, buttons, dialogs, or similar controls using raw HTML and duplicated styling when a shared component already provides that behavior. Feature-specific layout classes such as width, spacing, and positioning may still be applied where appropriate.
+
+8. **AI is a controlled application layer**  
    LLMs do not receive unrestricted database access.
 
 8. **Human approval for sensitive actions**  

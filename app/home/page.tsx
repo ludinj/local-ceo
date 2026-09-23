@@ -1,39 +1,26 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { syncApplicationUser } from "@/lib/auth/sync-user";
 import { AppSidebar } from "@/components/app-sidebar";
 import { Typography } from "@/components/ui/typography";
 import { SignOutButton } from "@/components/sign-out-button";
-import { CompanyCreateCard } from "@/features/companies/components/company-create-card";
-import { CompanyCard } from "@/features/companies/components/company-card";
+import { CompanyFilters } from "@/features/companies/components/company-filters";
+import { CompanyList } from "@/features/companies/components/company-list";
+import { CompanyListSkeleton } from "@/features/companies/components/company-list-skeleton";
+import { getUserCompanyIndustries } from "@/features/companies/queries";
 
-// Temporary UI-only placeholder.
-// Real companies will come from CompanyMembership in Phase 3.
-const DUMMY_COMPANIES = [
-  {
-    id: "demo-1",
-    name: "Northstar Retail",
-    industry: "Retail",
-    role: "Owner",
-  },
-  {
-    id: "demo-2",
-    name: "Atlas Consulting",
-    industry: "Professional Services",
-    role: "Manager",
-  },
-  {
-    id: "demo-3",
-    name: "Lumen Foods",
-    industry: "Food & Beverage",
-    role: "Advisor",
-  },
-];
+interface HomePageProps {
+  searchParams: Promise<{
+    page?: string;
+    search?: string;
+    industry?: string;
+  }>;
+}
 
-export default async function HomePage() {
+export default async function HomePage({ searchParams }: HomePageProps) {
   const supabase = await createClient();
 
-  // Validate authentication state server-side using getClaims()
   const { data: claimsData, error: claimsError } =
     await supabase.auth.getClaims();
 
@@ -41,20 +28,24 @@ export default async function HomePage() {
     redirect("/login");
   }
 
-  // Synchronize authenticated user with application PostgreSQL database
   const appUser = await syncApplicationUser();
+  const params = await searchParams;
 
+  const pageParam = Number(params.page ?? "1");
+  const page =
+    Number.isFinite(pageParam) && pageParam > 0 ? Math.floor(pageParam) : 1;
+  const search = params.search ?? "";
+  const industry = params.industry ?? "";
+
+  const industries = await getUserCompanyIndustries(appUser.id);
   const userEmail = appUser.email;
   const userName = appUser.name || userEmail.split("@")[0] || "User";
 
   return (
     <div className="flex min-h-screen bg-background text-foreground">
-      {/* Sidebar navigation */}
       <AppSidebar userEmail={userEmail} userName={userName} />
 
-      {/* Main Content Area */}
       <main className="flex-1 overflow-y-auto">
-        {/* Mobile Header Bar */}
         <header className="flex items-center justify-between border-b border-border bg-sidebar px-4 py-3 md:hidden">
           <div className="flex items-center gap-2">
             <div className="flex size-7 items-center justify-center rounded bg-sidebar-primary text-sidebar-primary-foreground font-bold text-xs">
@@ -73,7 +64,6 @@ export default async function HomePage() {
         </header>
 
         <div className="p-6 md:p-10 max-w-6xl space-y-8">
-          {/* Welcome / Header Section */}
           <div className="space-y-1">
             <Typography variant="header-1">Welcome back, {userName}</Typography>
             <Typography variant="subtitle">
@@ -81,27 +71,24 @@ export default async function HomePage() {
             </Typography>
           </div>
 
-          {/* Your Companies Section */}
           <section className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-4">
               <Typography variant="header-3">Your Companies</Typography>
-              <Typography variant="muted" className="text-xs">
-                {DUMMY_COMPANIES.length + 1} workspace options
-              </Typography>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {DUMMY_COMPANIES.map((company) => (
-                <CompanyCard
-                  key={company.id}
-                  name={company.name}
-                  industry={company.industry}
-                  role={company.role}
-                />
-              ))}
+            <CompanyFilters industries={industries} />
 
-              <CompanyCreateCard />
-            </div>
+            <Suspense
+              key={`${page}-${search}-${industry}`}
+              fallback={<CompanyListSkeleton />}
+            >
+              <CompanyList
+                userId={appUser.id}
+                page={page}
+                search={search}
+                industry={industry}
+              />
+            </Suspense>
           </section>
         </div>
       </main>

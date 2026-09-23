@@ -83,6 +83,7 @@ export function CompanyForm({ onSuccess, onCancel }: CompanyFormProps) {
     }
 
     if (onSuccess) {
+      router.refresh();
       onSuccess();
       return;
     }

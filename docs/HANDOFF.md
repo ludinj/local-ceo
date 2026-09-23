@@ -278,9 +278,17 @@ Implemented behavior:
 - Validation, authentication, and loading states are handled in the form and server action.
 - The transaction creates the company and owner membership atomically.
 
-### Phase 3.4 — Company Listing
+### Phase 3.4 — Company Listing (Completed)
 
-Replace the temporary company cards on `/home` with real companies loaded through `CompanyMembership`.
+Completed implementation:
+
+- Replaced the temporary `/home` company cards with real server-side company records loaded through `CompanyMembership`.
+- Added server-side list queries and industry discovery scoped to the authenticated application user.
+- Added URL-driven search, industry filtering, and pagination using the home query string contract.
+- Kept ordering fixed to company name ascending and avoided any client-side filtering or browser-only Prisma access.
+- Added a reusable skeleton loading state and used a Suspense boundary in the home page.
+- Kept the company creation flow and refresh behavior aligned with the working Phase 3.3 implementation.
+- Verified the implementation with lint, type-check, and production build commands.
 
 ### Phase 3.5 — Company Context
 
