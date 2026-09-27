@@ -19,7 +19,7 @@
 ## Current Project Status & Baseline
 
 - **Repository Path**: `/Users/mecbook/Desktop/react/local-ceo`
-- **Current Phase**: **Phase 3 — Organizations & Multi-Tenancy (In Progress)**
+- **Current Phase**: **Phase 4 — Authorization & Membership (Planned / Next)**
 - **Current Authentication Strategy**: **Google OAuth via Supabase Auth**
 - **Database**: **Supabase PostgreSQL**
 - **ORM**: **Prisma ORM 7.10**
@@ -116,7 +116,7 @@ Phase 2 is complete for the current Google OAuth MVP scope.
 
 ---
 
-## Phase 3 — Organizations & Multi-Tenancy
+## Phase 3 — Organizations & Multi-Tenancy (Completed)
 
 ### Current Architecture
 
@@ -295,11 +295,94 @@ Completed implementation:
 - Shared UI primitives from `components/ui` should be reused when an appropriate component already exists.
 - Verified with lint, type-check, and production build commands.
 
-### Phase 3.5 — Company Context
+### Phase 3.5 — Company Context & Workspace Foundation (Completed)
 
-Introduce company selection/context and server-side membership verification.
+Completed implementation:
 
-Introduce company selection/context and server-side membership verification.
+- Introduced the company workspace route at `/companies/[slug]`.
+- Clicking a company card on `/home` navigates directly to `/companies/[slug]`.
+- Created server-side company context helper `getCompanyContext(slug)` in `lib/auth/company-context.ts`:
+  - Resolves authenticated Supabase identity and application User server-side.
+  - Resolves requested `Company` record by `slug`.
+  - Verifies `CompanyMembership` for `(userId, companyId)` in PostgreSQL.
+  - Redirects unauthenticated users to `/login`.
+  - Returns `notFound()` for nonexistent companies or non-member users to prevent leaking company existence.
+- Created `CompanySidebar` exposing the conceptual multi-module workspace navigation structure (Overview, Operations, Growth, Insights, People, Company) with active and coming-soon items.
+- Created `CompanyOverview` dashboard showing genuine model data (`Company` name, legal name, country code, industry, tax ID/RIF, membership role, creation dates).
+- Created `CompanyWorkspaceSkeleton` and route-level `loading.tsx` for Suspense fallback loading.
+- Verified with `npm run lint`, `npm run type-check`, and `npm run build`.
+
+---
+
+## EXACT NEXT TASK
+
+### Phase 4 — Authorization & Membership (Planned / Next)
+
+Establish the authorization, membership administration, and generic notification foundation.
+
+Do not implement Phase 4 yet.
+
+#### 4.1 RBAC Foundation (Planned)
+- Built-in roles: `OWNER`, `ADMIN`, `MANAGER`, `FINANCE`, `VIEWER`.
+- Permission definitions and role-to-permission mapping.
+- Reusable server-side permission checks evaluating `CompanyMembership` context (e.g., `hasPermission(context, "members.manage")`).
+- Authorization checks must evaluate granular permissions rather than hardcoding role-name conditions throughout application logic.
+- Progressive permission model designed to be extensible for future business modules (e.g., `employees.create`, `invoices.read`, `inventory.manage`).
+- Custom roles and custom role management UI deferred to future releases.
+
+#### 4.2 Members (Planned)
+- Company members listing inside the workspace (`/companies/[slug]/members`).
+- Membership role indicators and user profile details.
+- Permission-aware UI hiding unauthorized management controls while keeping server-side checks as the strict security boundary.
+
+#### 4.3 Member Administration (Planned)
+- Workflows to change member role and remove member.
+- Server-side permission enforcement and ownership invariants.
+- **Owner Invariants**:
+  - `OWNER` is a membership role on `CompanyMembership`.
+  - A company must ALWAYS have at least one `OWNER`.
+  - The final `OWNER` cannot be removed or demoted.
+  - Ownership actions require elevated permissions (`ownership.transfer`).
+  - Owner role is NEVER a global `User` property.
+
+#### 4.4 Notification Foundation (Planned)
+- Generic application-level notification capability (`Notification`).
+- Notifications answer: *What should a specific application user be informed about?*
+- Recipient-oriented notifications with read/unread states (`readAt` timestamp) and unread count helpers.
+- Future notification consumers include: invitation events (received/accepted/declined), role changes, member removals, overdue invoices, low inventory, ready reports, AI recommendations, AI action approvals, and billing alerts.
+- **Global Notification Bell**:
+  - Visible in authenticated application header/sidebar areas.
+  - Displays badge with unread count.
+  - Opens a lightweight popover/dropdown showing the **latest 5 notifications**.
+- **Full Notifications Page**:
+  - History of user notifications with read/unread filtering.
+- **Actionable Modals**:
+  - Reserved strictly for high-priority notifications requiring explicit user action (e.g., pending organization invitation, AI action approval).
+  - Will NOT pop up automatically for every ordinary notification.
+
+---
+
+## Phase 5 — Invitations (Planned)
+
+#### 5.1 Invitation Foundation (Planned)
+- `Invitation` entity (companyId, invited email, intended role, inviterId, secure token, expiration, status).
+- Invitation statuses: `PENDING`, `ACCEPTED`, `DECLINED`, `EXPIRED`, `REVOKED`.
+
+#### 5.2 Invitation Flow (Planned)
+- Authorized member invites a user by email.
+- Invitation created as `PENDING`.
+- **Membership vs Invitation Distinction**: An invitation is a pending access offer. Creating an invitation MUST NOT automatically create a `CompanyMembership`. `CompanyMembership` is created ONLY when the invitation is explicitly accepted by the verified user.
+- **Onboarding Scenarios**:
+  - *Existing Local CEO user*: Associated by verified email; receives in-app notification & actionable UI.
+  - *New User*: Invitation exists by email; external delivery directs user to complete Google OAuth authentication; post-authentication server logic verifies that authenticated email matches invited email.
+  - Browser query params containing email are NEVER trusted for authorization.
+- Authenticated invited user accepts or declines.
+- `CompanyMembership` created ONLY upon successful acceptance, updating invitation status to `ACCEPTED`.
+
+#### 5.3 Invitation Notifications & UX (Planned)
+- Notification generated for recipient upon invitation creation.
+- Actionable invitation UI (modal / banner).
+- Inviter receives notification when invitation is accepted or declined.
 
 ---
 
@@ -339,6 +422,25 @@ Introduce company selection/context and server-side membership verification.
 
 10. **Database secrets remain server-only**
     - `DATABASE_URL` and `DIRECT_URL` must never be exposed through `NEXT_PUBLIC_*`.
+
+11. **Mandatory UI Component Usage (`components/ui`)**
+    - Whenever appropriate, developers and AI agents MUST always use existing components in the `components/ui` folder (such as `Typography`, `AppIcon`, `Button`, `Input`, `Dialog`, `Select`, `Tooltip`, etc.) rather than writing raw HTML tags or duplicating styles.
+    - For text rendering specifically, always use `<Typography variant="...">` for headings, subtitles, body text, labels, captions, and badges. Add new typography variants to `components/ui/typography.tsx` when a new typographic style is needed.
+
+12. **Notification Read State vs Domain Action State**
+    - Notification read state (`readAt`) and domain action state (e.g., `invitation.status = PENDING`) are separate concerns.
+    - Viewing or marking an invitation notification as read (`readAt != null`) does NOT accept or decline the invitation (`status = PENDING`). Notification read state must never be used as the source of truth for domain lifecycle states.
+
+13. **Notifications vs Audit Log**
+    - **Notifications**: User-facing, recipient-oriented events that inform a specific user of relevant activity and support read/unread states.
+    - **Audit Log**: System-wide / company historical record tracking who performed what action on which resource for compliance, security, and AI agent action traceability. Notifications and audit events serve different purposes and must not be merged.
+
+14. **Future AI Actor Compatibility**
+    - Notification actors may be a human user, an AI agent, or a system service.
+    - Notification architecture must remain extensible for AI-generated and system-generated notifications without assuming the actor is always another human user.
+
+15. **Generic Notification System**
+    - Notifications are a generic application capability, not limited to invitations.
 
 ---
 

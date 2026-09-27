@@ -30,6 +30,25 @@ The home page list follows this query contract:
 
 No `sortBy` or `sortOrder` parameters are supported in this phase.
 
+## Phase 3.5 Workspace & Context Behavior
+
+Selecting a company card on `/home` navigates directly to its workspace at `/companies/[slug]`.
+
+### Server-side company context (`getCompanyContext`)
+
+- Workspace access is protected by `getCompanyContext(slug)` in `lib/auth/company-context.ts`.
+- The helper resolves the authenticated Supabase session, synchronizes the application User, fetches the `Company` record by `slug`, and verifies `CompanyMembership` for `(userId, companyId)`.
+- If the user is unauthenticated, they are redirected to `/login`.
+- If the company slug does not exist, or the authenticated user is not a member of the company, `notFound()` is returned to avoid exposing company existence to non-members.
+
+### Company workspace layout & dashboard
+
+- Route: `/companies/[slug]`
+- Layout includes `CompanySidebar` with multi-module workspace navigation (Overview, Operations, Growth, Insights, People, Company).
+- Unimplemented modules are displayed with a "Soon" indicator without dead links or fake data.
+- The Overview dashboard (`CompanyOverview`) displays genuine model data (`Company` name, legal name, country code, industry, generic tax ID / RIF, membership role, and creation timestamp).
+- Loading states use `CompanyWorkspaceSkeleton` wrapped in Suspense via route `loading.tsx`.
+
 ## Key Requirements
 
 - Company creation flow initiated from the home-company workspace area through a modal (`Name`, `Legal Name`, `Country`, `Industry`, `Registration / Tax ID`).
@@ -40,7 +59,8 @@ No `sortBy` or `sortOrder` parameters are supported in this phase.
 - Empty unfiltered results show the create-company card on page 1 only.
 - Strict `companyId` context injection remains required for future business modules and server actions.
 - Complete data isolation between companies.
-- No standalone `/companies/new` route during this phase; the flow stays in the home context.
+- Navigation from `/home` card enters `/companies/[slug]`.
+- Company workspace routes verify membership server-side.
 
 ## Design Rule
 
@@ -55,13 +75,9 @@ A single user can belong to multiple companies with distinct roles in each compa
 - It reads query params safely and sanitizes invalid page values to 1.
 - The list is wrapped in a Suspense boundary so a skeleton appears while data loads.
 
-### Company creation refresh
-
-- Creating a company triggers a refresh of the current route so the newly created company appears without requiring a browser refresh.
-- The flow preserves the existing Phase 3.3 company creation pattern and does not redesign it.
-
-### Security and tenancy
+### Company workspace navigation & security
 
 - The authenticated application user ID is the source of truth for company membership queries.
-- No company listing can be built from an arbitrary user ID in the URL or request.
-- The tenant boundary is enforced in Prisma by filtering through `CompanyMembership` membership records.
+- No company workspace can be accessed from an arbitrary user ID or slug without verified server-side `CompanyMembership`.
+- The tenant boundary is enforced in Prisma by filtering through `CompanyMembership` membership records in `getCompanyContext`.
+
