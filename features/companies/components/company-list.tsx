@@ -41,6 +41,7 @@ export async function CompanyList({
     <CompanyCard
       key={company.id}
       name={company.name}
+      slug={company.slug}
       industry={company.industry ?? "Not specified"}
       role={company.role}
     />

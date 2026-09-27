@@ -1,9 +1,45 @@
-import { Building2, Home, LogOut, type LucideIcon } from "lucide-react";
+import {
+  ArrowLeft,
+  BarChart3,
+  Briefcase,
+  Building2,
+  ChevronDown,
+  CreditCard,
+  DollarSign,
+  FileText,
+  Home,
+  LayoutDashboard,
+  LogOut,
+  Megaphone,
+  Package,
+  Settings,
+  Shield,
+  ShoppingBag,
+  User,
+  Users,
+  type LucideIcon,
+} from "lucide-react";
 
 const icons = {
   home: Home,
   building: Building2,
   "log-out": LogOut,
+  "arrow-left": ArrowLeft,
+  "chevron-down": ChevronDown,
+  dashboard: LayoutDashboard,
+  briefcase: Briefcase,
+  sales: DollarSign,
+  customers: Users,
+  inventory: Package,
+  billing: CreditCard,
+  expenses: ShoppingBag,
+  marketing: Megaphone,
+  analytics: BarChart3,
+  reports: FileText,
+  employees: User,
+  agents: Shield,
+  members: Users,
+  settings: Settings,
 } satisfies Record<string, LucideIcon>;
 
 const iconSizes = {

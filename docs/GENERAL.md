@@ -347,19 +347,19 @@ Later, agents may execute controlled actions with explicit human approval.
 
 ## 7. Recommended Development Roadmap
 
-| Phase                  | Scope                                                                           | Status          |
-| :--------------------- | :------------------------------------------------------------------------------ | :-------------- |
-| **1. Foundation**      | Next.js project, UI foundation, Tailwind CSS, shadcn/ui                         | **Completed**   |
-| **2. Authentication**  | Supabase SSR foundation, Google OAuth login, sessions, logout, protected routes | **Completed**   |
-| **3. Organizations**   | Application users, companies, memberships, company creation and selection       | **In Progress** |
-| **4. RBAC**            | Roles, permissions, protected routes, server-side authorization                 | Planned         |
-| **5. Invitations**     | Invite users, accept invitations, membership creation                           | Planned         |
-| **6. Business Core**   | Products, inventory, customers, invoices, and sales                             | Planned         |
-| **7. Dashboard**       | Revenue, sales, inventory, and business metrics                                 | Planned         |
-| **8. Local CEO Agent** | AI chat + company context + read-only business tools                            | Planned         |
-| **9. AI Actions**      | Recommendations, approvals, and controlled write operations                     | Planned         |
-| **10. More Agents**    | Accountant, Marketing, HR, and specialized AI agents                            | Planned         |
-| **11. Employees**      | Employee management and human-AI agent collaboration                            | Planned         |
+| Phase                          | Scope                                                                           | Status             |
+| :----------------------------- | :------------------------------------------------------------------------------ | :----------------- |
+| **1. Foundation**              | Next.js project, UI foundation, Tailwind CSS, shadcn/ui                         | **Completed**      |
+| **2. Authentication**          | Supabase SSR foundation, Google OAuth login, sessions, logout, protected routes | **Completed**      |
+| **3. Organizations**           | Application users, companies, memberships, creation, listing, and workspace context | **Completed**  |
+| **4. Authorization & Membership** | Roles, permissions, member administration, notification foundation             | **Planned (Next)** |
+| **5. Invitations**             | Invite users by email, invitation tokens, acceptance flow, invitation notifications | Planned        |
+| **6. Business Core**           | Products, inventory, customers, invoices, and sales                             | Planned            |
+| **7. Dashboard**               | Revenue, sales, inventory, and business metrics                                 | Planned            |
+| **8. Local CEO Agent**         | AI chat + company context + read-only business tools                            | Planned            |
+| **9. AI Actions**              | Recommendations, approvals, and controlled write operations                     | Planned            |
+| **10. More Agents**            | Accountant, Marketing, HR, and specialized AI agents                            | Planned            |
+| **11. Employees**              | Employee management and human-AI agent collaboration                            | Planned            |
 
 ### Phase 2 — Authentication Breakdown
 
@@ -379,29 +379,34 @@ Email/password authentication and password recovery remain intentionally deferre
 3.2 Application User Synchronization     → Completed
 3.3 Company Creation                     → Completed
 3.4 Company Listing                      → Completed
-3.5 Company Context & Membership Check   → Planned
+3.5 Company Context & Membership Check   → Completed
 ```
 
-### Phase 3.1 Current Status
+### Phase 4 — Authorization & Membership Breakdown (Planned / Next)
 
-Completed:
+```text
+4.1 RBAC Foundation             → Planned
+4.2 Members                      → Planned
+4.3 Member Administration        → Planned
+4.4 Notification Foundation      → Planned
+```
 
-- Prisma ORM 7.10 configured.
-- Supabase PostgreSQL runtime and migration connections configured.
-- Prisma CLI uses `DIRECT_URL`.
-- Runtime queries use `DATABASE_URL`.
-- Initial multi-tenant models defined:
-  - `User`
-  - `Company`
-  - `CompanyMembership`
-- `User.id` uses the same UUID as Supabase Auth `auth.users.id`.
-- Membership role metadata belongs to `CompanyMembership`.
-- Duplicate memberships are prevented with a unique `(userId, companyId)` constraint.
-- Initial `initial_organizations` migration successfully applied to Supabase PostgreSQL.
-- Prisma Client generated (`lib/generated/prisma/client`).
-- Reusable Prisma 7.10 runtime client created (`lib/prisma.ts`) with `@prisma/adapter-pg` driver adapter.
-- Hot reload singleton pattern implemented using `globalThis`.
-- Database connectivity verified with `prisma.user.count()`, `prisma.company.count()`, and `prisma.companyMembership.count()`.
+- **4.1 RBAC Foundation**: Built-in roles (`OWNER`, `ADMIN`, `MANAGER`, `FINANCE`, `VIEWER`), permission definitions, server-side permission checks evaluating `CompanyMembership` context. Authorization logic evaluates granular permissions (e.g. `hasPermission(context, "members.manage")`) rather than hardcoding role names. Extensible for future business module permissions.
+- **4.2 Members**: Workspace members listing page (`/companies/[slug]/members`), role indicators, permission-aware UI hiding unauthorized management options while maintaining server-side security.
+- **4.3 Member Administration**: Role change and member removal workflows. Server-side permission enforcement and **Owner Invariants** (company must always have at least 1 `OWNER`; final `OWNER` cannot be demoted or removed; ownership transfer requires elevated permissions).
+- **4.4 Notification Foundation**: Generic application-level notification capability (`Notification`). Recipient-oriented notifications with read/unread tracking (`readAt`). Global notification bell showing unread count badge & latest 5 notifications popover; full notifications page; actionable modals reserved strictly for high-priority items (e.g. pending invitation, AI action approval).
+
+### Phase 5 — Invitations Breakdown (Planned)
+
+```text
+5.1 Invitation Foundation        → Planned
+5.2 Invitation Flow              → Planned
+5.3 Invitation Notifications & UX→ Planned
+```
+
+- **5.1 Invitation Foundation**: `Invitation` entity (`companyId`, invited email, intended role, `inviterId`, secure token, expiration, status). Statuses: `PENDING`, `ACCEPTED`, `DECLINED`, `EXPIRED`, `REVOKED`.
+- **5.2 Invitation Flow**: Authorized member invites by email. Invitation created as `PENDING`. An invitation is a pending access offer and MUST NOT create a `CompanyMembership` until explicitly accepted by the verified user. Verified post-authentication matching for new & existing users; browser query params containing email are never trusted.
+- **5.3 Invitation Notifications & UX**: Notifications generated for recipient upon invitation and for inviter upon acceptance/decline; actionable invitation UI.
 
 ---
 
@@ -425,17 +430,26 @@ Completed:
 6. **Progressive data modeling**  
    Business tables are introduced when their corresponding features are implemented rather than designing the entire future schema upfront.
 
-7. **Shared UI primitives first**  
-   Feature code should reuse existing components from `components/ui` whenever an appropriate shared primitive exists. Do not recreate inputs, selectors, buttons, dialogs, or similar controls using raw HTML and duplicated styling when a shared component already provides that behavior. Feature-specific layout classes such as width, spacing, and positioning may still be applied where appropriate.
+7. **Shared UI primitives first (`components/ui`)**  
+   Whenever appropriate, feature code MUST reuse existing components from `components/ui` (such as `Typography`, `AppIcon`, `Button`, `Input`, `Dialog`, `Select`, `Tooltip`, etc.) rather than writing raw HTML text tags or duplicating control styles. For typography specifically, always use `<Typography variant="...">` for headings, subtitles, body text, labels, captions, and badges.
 
-8. **AI is a controlled application layer**  
-   LLMs do not receive unrestricted database access.
+8. **Notification Read State vs Domain Action State**  
+   Notification read state (`readAt`) and domain action state (e.g. `invitation.status = PENDING`) are separate concerns. Viewing or marking a notification as read does NOT accept or decline an invitation. Notification read state must never be used as the source of truth for domain lifecycle states.
 
-8. **Human approval for sensitive actions**  
-   AI agents recommend first and act only through controlled application tools.
+9. **Notifications vs Audit Log**  
+   User-facing recipient notifications inform specific users of relevant events and track read status. Audit logs track system/company action history for compliance and security. They serve different purposes and must not be merged.
 
-9. **Provider abstraction**  
-   AI model providers can be replaced without rewriting core business logic.
+10. **Generic Notification System & AI Compatibility**  
+    Notifications are a generic application capability. Notification actors may be a human user, an AI agent, or a system service.
 
-10. **Start simple**  
+11. **AI is a controlled application layer**  
+    LLMs do not receive unrestricted database access.
+
+12. **Human approval for sensitive actions**  
+    AI agents recommend first and act only through controlled application tools.
+
+13. **Provider abstraction**  
+    AI model providers can be replaced without rewriting core business logic.
+
+14. **Start simple**  
     Continue with a single Next.js application before introducing separate backend services.
