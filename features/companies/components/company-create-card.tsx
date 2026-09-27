@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { Plus } from "lucide-react";
-import { CompanyForm } from "@/components/companies/company-form";
 import { Typography } from "@/components/ui/typography";
+import { CompanyForm } from "./company-form";
 
 export function CompanyCreateCard() {
   const [isOpen, setIsOpen] = useState(false);
