@@ -19,7 +19,7 @@
 ## Current Project Status & Baseline
 
 - **Repository Path**: `/Users/mecbook/Desktop/react/local-ceo`
-- **Current Phase**: **Phase 4 — Authorization & Membership (Planned / Next)**
+- **Current Phase**: **Phase 4 — Authorization & Membership (Phase 4.1 RBAC Foundation Completed)**
 - **Current Authentication Strategy**: **Google OAuth via Supabase Auth**
 - **Database**: **Supabase PostgreSQL**
 - **ORM**: **Prisma ORM 7.10**
@@ -316,21 +316,20 @@ Completed implementation:
 
 ## EXACT NEXT TASK
 
-### Phase 4 — Authorization & Membership (Planned / Next)
+### Phase 4.2 — Members (Planned / Next)
 
-Establish the authorization, membership administration, and generic notification foundation.
+#### 4.1 RBAC Foundation (Completed)
+- [x] Created centralized RBAC module in `lib/auth/rbac.ts`.
+- [x] Defined 5 built-in roles: `OWNER`, `ADMIN`, `MANAGER`, `FINANCE`, `VIEWER`.
+- [x] Defined initial 7 permissions vocabulary: `company.read`, `company.update`, `members.read`, `members.invite`, `members.manage`, `members.remove`, `ownership.transfer`.
+- [x] Established Role → Permission mapping matrix (OWNER has all 7, ADMIN has 6 excluding `ownership.transfer`, MANAGER/FINANCE/VIEWER have `company.read` and `members.read`).
+- [x] Created reusable, pure `hasPermission` checker: fail-closed for unknown roles, no database queries.
+- [x] Created reusable `requirePermission` server-side guard throwing custom `AuthorizationError`.
+- [x] Integrated with `CompanyContext` and `CompanyMembership`.
+- [x] Added unit tests verifying matrix evaluation, fail-closed behavior, and exception throwing.
+- [x] Kept RBAC in application code without database permission tables or migrations.
 
-Do not implement Phase 4 yet.
-
-#### 4.1 RBAC Foundation (Planned)
-- Built-in roles: `OWNER`, `ADMIN`, `MANAGER`, `FINANCE`, `VIEWER`.
-- Permission definitions and role-to-permission mapping.
-- Reusable server-side permission checks evaluating `CompanyMembership` context (e.g., `hasPermission(context, "members.manage")`).
-- Authorization checks must evaluate granular permissions rather than hardcoding role-name conditions throughout application logic.
-- Progressive permission model designed to be extensible for future business modules (e.g., `employees.create`, `invoices.read`, `inventory.manage`).
-- Custom roles and custom role management UI deferred to future releases.
-
-#### 4.2 Members (Planned)
+#### 4.2 Members (Planned / Next)
 - Company members listing inside the workspace (`/companies/[slug]/members`).
 - Membership role indicators and user profile details.
 - Permission-aware UI hiding unauthorized management controls while keeping server-side checks as the strict security boundary.

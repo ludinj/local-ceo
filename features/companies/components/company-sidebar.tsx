@@ -136,7 +136,7 @@ export function CompanySidebar({
             <div key={section.title} className="space-y-1">
               <Typography
                 variant="caption"
-                className="px-2 text-[10px] font-bold tracking-wider uppercase text-muted-foreground/60 block"
+                className="px-2 text-[10px] font-bold tracking-wider uppercase text-muted-foreground/80 block"
               >
                 {section.title}
               </Typography>
