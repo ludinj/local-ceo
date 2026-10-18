@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { AppIcon, type AppIconName } from "@/components/ui/app-icon";
 import { SignOutButton } from "@/components/sign-out-button";
 import { Typography } from "@/components/ui/typography";
@@ -31,7 +34,10 @@ export function CompanySidebar({
   userEmail,
   userName,
 }: CompanySidebarProps) {
+  const pathname = usePathname();
   const slug = company.slug;
+  const dashboardPath = `/companies/${slug}`;
+  const membersPath = `${dashboardPath}/members`;
 
   const navSections: NavSection[] = [
     {
@@ -40,8 +46,8 @@ export function CompanySidebar({
         {
           label: "Dashboard",
           icon: "dashboard",
-          href: `/companies/${slug}`,
-          active: true,
+          href: dashboardPath,
+          active: pathname === dashboardPath,
         },
       ],
     },
@@ -76,7 +82,12 @@ export function CompanySidebar({
     {
       title: "COMPANY",
       items: [
-        { label: "Members", icon: "members", disabled: true },
+        {
+          label: "Members",
+          icon: "members",
+          href: membersPath,
+          active: pathname === membersPath || pathname.startsWith(`${membersPath}/`),
+        },
         { label: "Settings", icon: "settings", disabled: true },
       ],
     },
@@ -136,7 +147,7 @@ export function CompanySidebar({
             <div key={section.title} className="space-y-1">
               <Typography
                 variant="caption"
-                className="px-2 text-[10px] font-bold tracking-wider uppercase text-muted-foreground/60 block"
+                className="px-2 text-[10px] font-bold tracking-wider uppercase text-muted-foreground/80 block"
               >
                 {section.title}
               </Typography>

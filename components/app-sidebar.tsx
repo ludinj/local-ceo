@@ -9,7 +9,7 @@ interface AppSidebarProps {
 
 export function AppSidebar({ userEmail, userName }: AppSidebarProps) {
   return (
-    <aside className="w-64 shrink-0 border-r border-sidebar-border bg-sidebar text-sidebar-foreground flex flex-col justify-between hidden md:flex min-h-screen">
+    <aside className="w-64 shrink-0 border-r border-sidebar-border bg-sidebar text-sidebar-foreground  flex-col justify-between hidden md:flex min-h-screen">
       <div className="p-6 space-y-8">
         {/* Brand */}
         <div className="flex items-center gap-2.5">
@@ -31,7 +31,7 @@ export function AppSidebar({ userEmail, userName }: AppSidebarProps) {
             Home
           </Link>
 
-          <div className="flex items-center justify-between rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground/60 cursor-not-allowed">
+          <div className="flex items-center justify-between rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground/80 cursor-not-allowed">
             <span className="flex items-center gap-3">
               <AppIcon name="building" size="sm" />
               Companies

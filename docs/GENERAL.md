@@ -382,17 +382,17 @@ Email/password authentication and password recovery remain intentionally deferre
 3.5 Company Context & Membership Check   → Completed
 ```
 
-### Phase 4 — Authorization & Membership Breakdown (Planned / Next)
+### Phase 4 — Authorization & Membership Breakdown
 
 ```text
-4.1 RBAC Foundation             → Planned
-4.2 Members                      → Planned
+4.1 RBAC Foundation             → Completed
+4.2 Members                      → Completed
 4.3 Member Administration        → Planned
 4.4 Notification Foundation      → Planned
 ```
 
 - **4.1 RBAC Foundation**: Built-in roles (`OWNER`, `ADMIN`, `MANAGER`, `FINANCE`, `VIEWER`), permission definitions, server-side permission checks evaluating `CompanyMembership` context. Authorization logic evaluates granular permissions (e.g. `hasPermission(context, "members.manage")`) rather than hardcoding role names. Extensible for future business module permissions.
-- **4.2 Members**: Workspace members listing page (`/companies/[slug]/members`), role indicators, permission-aware UI hiding unauthorized management options while maintaining server-side security.
+- **4.2 Members**: Workspace members listing page (`/companies/[slug]/members`) with role-aware filtering, server-side search and pagination, shared pagination, and a visible loading state while results reload without unmounting the filter controls.
 - **4.3 Member Administration**: Role change and member removal workflows. Server-side permission enforcement and **Owner Invariants** (company must always have at least 1 `OWNER`; final `OWNER` cannot be demoted or removed; ownership transfer requires elevated permissions).
 - **4.4 Notification Foundation**: Generic application-level notification capability (`Notification`). Recipient-oriented notifications with read/unread tracking (`readAt`). Global notification bell showing unread count badge & latest 5 notifications popover; full notifications page; actionable modals reserved strictly for high-priority items (e.g. pending invitation, AI action approval).
 
