@@ -4,6 +4,19 @@
 
 Companies serve as the multi-tenant isolation boundary for Local CEO. All business data, inventory, invoices, and AI agent interactions are strictly scoped to a specific company.
 
+## Current Phase 4.2 Behavior
+
+The company workspace now includes a read-only members directory at `/companies/[slug]/members`. Membership data is scoped to the authenticated company and is filtered in PostgreSQL using the active `CompanyMembership` boundary.
+
+### Members listing
+
+- The route enforces `members.read` access against the current company context before querying members.
+- Search matches display names and email addresses case-insensitively within the company membership set.
+- Role filters limit the result set to the selected built-in roles while preserving a clear URL-based query contract.
+- Pagination is count-based and uses the same page parameter pattern as the home and company list screens.
+- The table area is wrapped in a Suspense boundary so a skeleton appears while server results are loading after search, filter, or page changes.
+- The filter controls stay mounted throughout reloads so the user does not lose focus during query updates.
+
 ## Current Phase 3.4 Behavior
 
 The company list on the home screen is now powered by PostgreSQL through the application user’s CompanyMembership records instead of dummy UI data.

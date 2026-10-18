@@ -19,7 +19,7 @@
 ## Current Project Status & Baseline
 
 - **Repository Path**: `/Users/mecbook/Desktop/react/local-ceo`
-- **Current Phase**: **Phase 4 — Authorization & Membership (Phase 4.1 RBAC Foundation Completed)**
+- **Current Phase**: **Phase 4 — Authorization & Membership (Phase 4.2 Members Completed)**
 - **Current Authentication Strategy**: **Google OAuth via Supabase Auth**
 - **Database**: **Supabase PostgreSQL**
 - **ORM**: **Prisma ORM 7.10**
@@ -316,7 +316,7 @@ Completed implementation:
 
 ## EXACT NEXT TASK
 
-### Phase 4.2 — Members (Planned / Next)
+### Phase 4.2 — Members (Completed)
 
 #### 4.1 RBAC Foundation (Completed)
 - [x] Created centralized RBAC module in `lib/auth/rbac.ts`.
@@ -329,10 +329,14 @@ Completed implementation:
 - [x] Added unit tests verifying matrix evaluation, fail-closed behavior, and exception throwing.
 - [x] Kept RBAC in application code without database permission tables or migrations.
 
-#### 4.2 Members (Planned / Next)
-- Company members listing inside the workspace (`/companies/[slug]/members`).
-- Membership role indicators and user profile details.
-- Permission-aware UI hiding unauthorized management controls while keeping server-side checks as the strict security boundary.
+#### 4.2 Members (Completed)
+- [x] Company members listing inside the workspace (`/companies/[slug]/members`).
+- [x] Server-side membership query with authenticated company-scoped filtering, search, role filters, and count-based pagination.
+- [x] Shared `Pagination` component reused for consistent page navigation while preserving URL params.
+- [x] `CompanyMembersFilters` stays mounted while the results area suspends, preventing search focus loss during data reloads.
+- [x] `CompanyMembersTableSkeleton` displays a clear loading state while server queries resolve after search, role, or page changes.
+- [x] Permission-aware security boundary remains enforced by `requirePermission(context, "members.read")` and server-side Prisma access patterns.
+- [x] Verified with `npm run lint`, `npm run type-check`, and `npm run build`.
 
 #### 4.3 Member Administration (Planned)
 - Workflows to change member role and remove member.
