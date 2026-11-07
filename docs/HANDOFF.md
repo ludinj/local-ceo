@@ -19,7 +19,7 @@
 ## Current Project Status & Baseline
 
 - **Repository Path**: `/Users/mecbook/Desktop/react/local-ceo`
-- **Current Phase**: **Phase 4 — Authorization & Membership (Phase 4.2 Members Completed)**
+- **Current Phase**: **Phase 5 — Member Invitations & Notifications (Backend Foundation Complete; Frontend Integration Pending)**
 - **Current Authentication Strategy**: **Google OAuth via Supabase Auth**
 - **Database**: **Supabase PostgreSQL**
 - **ORM**: **Prisma ORM 7.10**
@@ -348,44 +348,48 @@ Completed implementation:
   - Ownership actions require elevated permissions (`ownership.transfer`).
   - Owner role is NEVER a global `User` property.
 
-#### 4.4 Notification Foundation (Planned)
-- Generic application-level notification capability (`Notification`).
+#### 4.4 Notification Foundation (Completed in backend scope)
+- Generic application-level notification capability (`Notification`) is implemented as a user-recipient persistence layer.
 - Notifications answer: *What should a specific application user be informed about?*
-- Recipient-oriented notifications with read/unread states (`readAt` timestamp) and unread count helpers.
-- Future notification consumers include: invitation events (received/accepted/declined), role changes, member removals, overdue invoices, low inventory, ready reports, AI recommendations, AI action approvals, and billing alerts.
-- **Global Notification Bell**:
-  - Visible in authenticated application header/sidebar areas.
-  - Displays badge with unread count.
-  - Opens a lightweight popover/dropdown showing the **latest 5 notifications**.
-- **Full Notifications Page**:
-  - History of user notifications with read/unread filtering.
-- **Actionable Modals**:
-  - Reserved strictly for high-priority notifications requiring explicit user action (e.g., pending organization invitation, AI action approval).
-  - Will NOT pop up automatically for every ordinary notification.
+- Recipient-oriented notifications support optional `companyId`, read/unread states (`readAt`), optional actor metadata, and unread count helpers.
+- Current backend notification consumers include invitation events and other future app-level alerts. Email and push delivery remain deferred.
+- **Current scope limitation**:
+  - The global notification bell and full notification center are not implemented yet.
+  - Notification UI and popover experiences remain pending.
 
 ---
 
-## Phase 5 — Invitations (Planned)
+## Phase 5 — Invitations & Notifications (Backend Complete; Frontend Pending)
 
-#### 5.1 Invitation Foundation (Planned)
-- `Invitation` entity (companyId, invited email, intended role, inviterId, secure token, expiration, status).
+#### 5.1 Invitation Foundation (Completed in backend scope)
+- `Invitation` entity stores `companyId`, `inviterId`, invited email, target role, hashed token, expiration, and lifecycle status.
 - Invitation statuses: `PENDING`, `ACCEPTED`, `DECLINED`, `EXPIRED`, `REVOKED`.
+- Invitation tokens are persisted as SHA-256 hashes; original values cannot be reconstructed for future outbound email delivery.
+- Queries support `getMyPendingInvitations()` and authorized company-scoped listing with pagination and `effectiveStatus` display handling.
 
-#### 5.2 Invitation Flow (Planned)
-- Authorized member invites a user by email.
-- Invitation created as `PENDING`.
-- **Membership vs Invitation Distinction**: An invitation is a pending access offer. Creating an invitation MUST NOT automatically create a `CompanyMembership`. `CompanyMembership` is created ONLY when the invitation is explicitly accepted by the verified user.
+#### 5.2 Invitation Flow (Completed in backend scope)
+- Authorized company members create invitations only after server-side membership and permission validation.
+- Invitation creation rejects duplicate pending invitations, existing members, invalid role assignment, and unauthorized actors.
+- **Membership vs Invitation Distinction**: An invitation is a pending access offer. Creating an invitation does not create a `CompanyMembership`; a membership is created only when the invitation is explicitly accepted by the verified user.
 - **Onboarding Scenarios**:
-  - *Existing Local CEO user*: Associated by verified email; receives in-app notification & actionable UI.
-  - *New User*: Invitation exists by email; external delivery directs user to complete Google OAuth authentication; post-authentication server logic verifies that authenticated email matches invited email.
-  - Browser query params containing email are NEVER trusted for authorization.
-- Authenticated invited user accepts or declines.
-- `CompanyMembership` created ONLY upon successful acceptance, updating invitation status to `ACCEPTED`.
+  - *Existing Local CEO user*: Matched by verified email and receives in-app notification when invited.
+  - *New User*: Invitation remains stored by email and becomes discoverable after verified authentication and email matching.
+  - Browser query params or client-provided email values are never trusted for authorization.
+- Authenticated invited users accept or decline pending invitations only after server-side recipient matching.
+- `CompanyMembership` is created only upon successful acceptance, and the invitation state is updated atomically to `ACCEPTED`.
+- `revokeInvitationAction()` allows authorized members to cancel pending invitations, and invalid lifecycle transitions are prevented via conditional updates.
 
-#### 5.3 Invitation Notifications & UX (Planned)
-- Notification generated for recipient upon invitation creation.
-- Actionable invitation UI (modal / banner).
-- Inviter receives notification when invitation is accepted or declined.
+#### 5.3 Invitation Notifications & UX (Backend complete; UI pending)
+- Generic in-app notification persistence is implemented and supports creation, unread counts, list retrieval, and mark-as-read behavior.
+- Existing users receive invitation notifications immediately when invited.
+- New users may discover pending invitations after verified authentication even when no notification record was created at invitation time.
+- Global notification bell, popover, notification center, and invitation action UI remain pending.
+
+### Next Development Task
+
+**Phase 5 — Member Invitations & Notifications: Frontend Integration**
+
+The next session should begin by inspecting existing Home and Company Members page components, then implementing invitation creation and management UI, recipient invitation acceptance/decline UI, and the global in-app notification experience while preserving the existing architecture and shared UI conventions.
 
 ---
 

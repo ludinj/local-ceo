@@ -207,6 +207,15 @@ public.CompanyMembership
 
 ---
 
+## Invitation recipient verification
+
+The backend also enforces verified-recipient access for invitation actions.
+
+- `getAuthenticatedInvitationRecipient()` loads the authenticated Supabase user, requires an active session, and requires `user.email_confirmed_at`.
+- It synchronizes the application user with `syncApplicationUser()` and verifies the resulting `public.User.id` matches the authenticated Supabase user.
+- Only the authenticated recipient with a matching verified email may accept or decline a pending invitation.
+- This prevents browser-side query parameters or email hints from being treated as authorization.
+
 ## Responsibility Boundaries
 
 Supabase Auth answers:

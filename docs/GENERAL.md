@@ -73,6 +73,8 @@ The application database stores Local CEO-specific user data, companies, members
 - `User`: Global application identity associated with Supabase Auth.
 - `Company`: Multi-tenant organization entity.
 - `CompanyMembership`: Join entity connecting `User` and `Company` with membership-specific role metadata.
+- `Invitation`: Pending company access offer with secure token hashing, expiry, and lifecycle tracking.
+- `Notification`: Generic recipient-oriented application notification with read/unread state and optional company context.
 
 ### Current Company Model
 
@@ -90,7 +92,6 @@ updatedAt
 
 ### Future Core Entities
 
-- `Invitation`: Pending organization invitation tokens.
 - `Product` & `InventoryItem`: Inventory tracking entities.
 - `Customer`: Customer profiles and contact information.
 - `Invoice` & `InvoiceItem`: Invoicing and billing records.
@@ -211,16 +212,17 @@ The same authenticated user may therefore have different roles across different 
 
 ### Invitations
 
-Future invitations will contain information such as:
+The backend invitation foundation is implemented and in use for company onboarding workflows.
 
-- `companyId`
-- invited email
-- role
-- secure token
-- expiration
-- status
+Current functionality includes:
 
-Invitation functionality belongs to a later development phase.
+- `Invitation` records scoped to a company and inviter.
+- `invitedEmail` normalization and verified-recipient matching.
+- secure token generation with SHA-256 hashing before persistence.
+- expiry enforcement and `effectiveStatus` display logic for expired pending invitations.
+- `createInvitationAction()`, `acceptInvitationAction()`, `declineInvitationAction()`, and `revokeInvitationAction()` server actions.
+
+This is a backend-only foundation. Frontend invitation forms, pending invitation UI, and notification center UX remain pending.
 
 ---
 
@@ -352,8 +354,8 @@ Later, agents may execute controlled actions with explicit human approval.
 | **1. Foundation**              | Next.js project, UI foundation, Tailwind CSS, shadcn/ui                         | **Completed**      |
 | **2. Authentication**          | Supabase SSR foundation, Google OAuth login, sessions, logout, protected routes | **Completed**      |
 | **3. Organizations**           | Application users, companies, memberships, creation, listing, and workspace context | **Completed**  |
-| **4. Authorization & Membership** | Roles, permissions, member administration, notification foundation             | **Planned (Next)** |
-| **5. Invitations**             | Invite users by email, invitation tokens, acceptance flow, invitation notifications | Planned        |
+| **4. Authorization & Membership** | Roles, permissions, member administration, notification foundation             | **Backend complete; frontend integration pending** |
+| **5. Invitations & Notifications** | Invitation flow, notification persistence, recipient discovery, frontend integration | **Backend complete; frontend integration pending** |
 | **6. Business Core**           | Products, inventory, customers, invoices, and sales                             | Planned            |
 | **7. Dashboard**               | Revenue, sales, inventory, and business metrics                                 | Planned            |
 | **8. Local CEO Agent**         | AI chat + company context + read-only business tools                            | Planned            |
@@ -388,25 +390,25 @@ Email/password authentication and password recovery remain intentionally deferre
 4.1 RBAC Foundation             → Completed
 4.2 Members                      → Completed
 4.3 Member Administration        → Planned
-4.4 Notification Foundation      → Planned
+4.4 Notification Foundation      → Completed (backend persistence only)
 ```
 
 - **4.1 RBAC Foundation**: Built-in roles (`OWNER`, `ADMIN`, `MANAGER`, `FINANCE`, `VIEWER`), permission definitions, server-side permission checks evaluating `CompanyMembership` context. Authorization logic evaluates granular permissions (e.g. `hasPermission(context, "members.manage")`) rather than hardcoding role names. Extensible for future business module permissions.
 - **4.2 Members**: Workspace members listing page (`/companies/[slug]/members`) with role-aware filtering, server-side search and pagination, shared pagination, and a visible loading state while results reload without unmounting the filter controls.
 - **4.3 Member Administration**: Role change and member removal workflows. Server-side permission enforcement and **Owner Invariants** (company must always have at least 1 `OWNER`; final `OWNER` cannot be demoted or removed; ownership transfer requires elevated permissions).
-- **4.4 Notification Foundation**: Generic application-level notification capability (`Notification`). Recipient-oriented notifications with read/unread tracking (`readAt`). Global notification bell showing unread count badge & latest 5 notifications popover; full notifications page; actionable modals reserved strictly for high-priority items (e.g. pending invitation, AI action approval).
+- **4.4 Notification Foundation**: Backend notification persistence is implemented as a generic recipient-based application capability (`Notification`) with optional `companyId`, read/unread tracking, user/actor context, and query helpers. UI delivery layers and global notification center remain pending.
 
-### Phase 5 — Invitations Breakdown (Planned)
+### Phase 5 — Invitations & Notifications Breakdown
 
 ```text
-5.1 Invitation Foundation        → Planned
-5.2 Invitation Flow              → Planned
-5.3 Invitation Notifications & UX→ Planned
+5.1 Invitation Foundation        → Completed (backend)
+5.2 Invitation Flow              → Completed (backend)
+5.3 Invitation Notifications & UX→ Pending UI integration
 ```
 
-- **5.1 Invitation Foundation**: `Invitation` entity (`companyId`, invited email, intended role, `inviterId`, secure token, expiration, status). Statuses: `PENDING`, `ACCEPTED`, `DECLINED`, `EXPIRED`, `REVOKED`.
-- **5.2 Invitation Flow**: Authorized member invites by email. Invitation created as `PENDING`. An invitation is a pending access offer and MUST NOT create a `CompanyMembership` until explicitly accepted by the verified user. Verified post-authentication matching for new & existing users; browser query params containing email are never trusted.
-- **5.3 Invitation Notifications & UX**: Notifications generated for recipient upon invitation and for inviter upon acceptance/decline; actionable invitation UI.
+- **5.1 Invitation Foundation**: `Invitation` entity stores `companyId`, invited email, target role, `inviterId`, hashed token, expiration, and lifecycle status. The database migration is applied and the backend token utilities use SHA-256 hashing.
+- **5.2 Invitation Flow**: Server actions validate company membership and permissions, normalize email input, check duplicate invitations and existing memberships, and prevent invalid status transitions through conditional database updates.
+- **5.3 Invitation Notifications & UX**: Existing users receive immediate in-app invitation notifications. New users discover pending invitations after authenticated verification when matching their email. Global notification center, bell, and invitation UI remain pending.
 
 ---
 
