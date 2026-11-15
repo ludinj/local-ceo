@@ -19,7 +19,7 @@
 ## Current Project Status & Baseline
 
 - **Repository Path**: `/Users/mecbook/Desktop/react/local-ceo`
-- **Current Phase**: **Phase 5 — Member Invitations & Notifications (Backend Foundation Complete; Frontend Integration Pending)**
+- **Current Phase**: **Phase 5 — Member Invitations & Notifications (Backend foundation complete; frontend invite flow and toast foundation implemented in the repo, runtime verification still pending)**
 - **Current Authentication Strategy**: **Google OAuth via Supabase Auth**
 - **Database**: **Supabase PostgreSQL**
 - **ORM**: **Prisma ORM 7.10**
@@ -319,6 +319,7 @@ Completed implementation:
 ### Phase 4.2 — Members (Completed)
 
 #### 4.1 RBAC Foundation (Completed)
+
 - [x] Created centralized RBAC module in `lib/auth/rbac.ts`.
 - [x] Defined 5 built-in roles: `OWNER`, `ADMIN`, `MANAGER`, `FINANCE`, `VIEWER`.
 - [x] Defined initial 7 permissions vocabulary: `company.read`, `company.update`, `members.read`, `members.invite`, `members.manage`, `members.remove`, `ownership.transfer`.
@@ -330,6 +331,7 @@ Completed implementation:
 - [x] Kept RBAC in application code without database permission tables or migrations.
 
 #### 4.2 Members (Completed)
+
 - [x] Company members listing inside the workspace (`/companies/[slug]/members`).
 - [x] Server-side membership query with authenticated company-scoped filtering, search, role filters, and count-based pagination.
 - [x] Shared `Pagination` component reused for consistent page navigation while preserving URL params.
@@ -339,6 +341,7 @@ Completed implementation:
 - [x] Verified with `npm run lint`, `npm run type-check`, and `npm run build`.
 
 #### 4.3 Member Administration (Planned)
+
 - Workflows to change member role and remove member.
 - Server-side permission enforcement and ownership invariants.
 - **Owner Invariants**:
@@ -349,8 +352,9 @@ Completed implementation:
   - Owner role is NEVER a global `User` property.
 
 #### 4.4 Notification Foundation (Completed in backend scope)
+
 - Generic application-level notification capability (`Notification`) is implemented as a user-recipient persistence layer.
-- Notifications answer: *What should a specific application user be informed about?*
+- Notifications answer: _What should a specific application user be informed about?_
 - Recipient-oriented notifications support optional `companyId`, read/unread states (`readAt`), optional actor metadata, and unread count helpers.
 - Current backend notification consumers include invitation events and other future app-level alerts. Email and push delivery remain deferred.
 - **Current scope limitation**:
@@ -359,37 +363,48 @@ Completed implementation:
 
 ---
 
-## Phase 5 — Invitations & Notifications (Backend Complete; Frontend Pending)
+## Phase 5 — Invitations & Notifications (Backend complete; frontend invite flow and UI foundation implemented in the repo)
 
 #### 5.1 Invitation Foundation (Completed in backend scope)
+
 - `Invitation` entity stores `companyId`, `inviterId`, invited email, target role, hashed token, expiration, and lifecycle status.
 - Invitation statuses: `PENDING`, `ACCEPTED`, `DECLINED`, `EXPIRED`, `REVOKED`.
 - Invitation tokens are persisted as SHA-256 hashes; original values cannot be reconstructed for future outbound email delivery.
 - Queries support `getMyPendingInvitations()` and authorized company-scoped listing with pagination and `effectiveStatus` display handling.
 
 #### 5.2 Invitation Flow (Completed in backend scope)
+
 - Authorized company members create invitations only after server-side membership and permission validation.
 - Invitation creation rejects duplicate pending invitations, existing members, invalid role assignment, and unauthorized actors.
 - **Membership vs Invitation Distinction**: An invitation is a pending access offer. Creating an invitation does not create a `CompanyMembership`; a membership is created only when the invitation is explicitly accepted by the verified user.
 - **Onboarding Scenarios**:
-  - *Existing Local CEO user*: Matched by verified email and receives in-app notification when invited.
-  - *New User*: Invitation remains stored by email and becomes discoverable after verified authentication and email matching.
+  - _Existing Local CEO user_: Matched by verified email and receives in-app notification when invited.
+  - _New User_: Invitation remains stored by email and becomes discoverable after verified authentication and email matching.
   - Browser query params or client-provided email values are never trusted for authorization.
 - Authenticated invited users accept or decline pending invitations only after server-side recipient matching.
 - `CompanyMembership` is created only upon successful acceptance, and the invitation state is updated atomically to `ACCEPTED`.
 - `revokeInvitationAction()` allows authorized members to cancel pending invitations, and invalid lifecycle transitions are prevented via conditional updates.
 
-#### 5.3 Invitation Notifications & UX (Backend complete; UI pending)
+#### 5.3 Frontend Invite Member Flow (Implemented in current repo; runtime verification still pending)
+
+- The members page renders an Invite Member button when the authenticated company context passes the server-side `members.invite` permission check.
+- Role options are derived from `getAssignableInvitationRoles(context.membership.role)` on the server and passed to the client modal; the front-end does not duplicate the role-matrix business rules.
+- `InviteMemberDialog` uses React Hook Form + Zod, `InputText`, and `SimpleSelector`, and it mounts the dialog using the existing Base UI/shadcn primitives.
+- The current client form submits to the real `createInvitationAction()` server action with the validated email and role payload.
+- The global toast foundation is implemented through a provider in the root layout and a `useToast()` hook for success, error, warning, and info messages.
+- Full end-to-end verification of the invite lifecycle still needs runtime testing in Supabase/PostgreSQL and browser-based acceptance flows.
+
+#### 5.4 Notification UX (Backend implemented; selected UI primitives added)
+
 - Generic in-app notification persistence is implemented and supports creation, unread counts, list retrieval, and mark-as-read behavior.
-- Existing users receive invitation notifications immediately when invited.
-- New users may discover pending invitations after verified authentication even when no notification record was created at invitation time.
-- Global notification bell, popover, notification center, and invitation action UI remain pending.
+- The app now includes a global ephemeral toast layer separate from persisted `Notification` records.
+- Global notification bell, popover, notification center, invitation list UI, and recipient invitation experience remain pending.
 
 ### Next Development Task
 
-**Phase 5 — Member Invitations & Notifications: Frontend Integration**
+**Phase 5 — Verify and complete the invitation workflow**
 
-The next session should begin by inspecting existing Home and Company Members page components, then implementing invitation creation and management UI, recipient invitation acceptance/decline UI, and the global in-app notification experience while preserving the existing architecture and shared UI conventions.
+The next session should verify the actual runtime invite submission, then continue with the sent Invitations tab, revoke actions, recipient acceptance/decline UX, and the authenticated notification bell and history surfaces while keeping the existing server-side authorization and data model intact.
 
 ---
 

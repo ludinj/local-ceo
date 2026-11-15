@@ -3,21 +3,28 @@ import { Typography } from "@/components/ui/typography";
 import { CompanyMembersFilters } from "@/features/companies/components/company-members-filters";
 import { CompanyMembersList } from "@/features/companies/components/company-members-list";
 import { CompanyMembersTableSkeleton } from "@/features/companies/components/company-members-table-skeleton";
+import { InviteMemberDialog } from "@/features/invitations/components/invite-member-dialog";
 
 interface CompanyMembersPageContentProps {
   companyName: string;
   companyId: string;
+  companySlug: string;
   page: number;
   search: string;
   roles: string[];
+  canInvite?: boolean;
+  allowedRoles?: string[];
 }
 
 export function CompanyMembersPageContent({
   companyName,
   companyId,
+  companySlug,
   page,
   search,
   roles,
+  canInvite = false,
+  allowedRoles = [],
 }: CompanyMembersPageContentProps) {
   return (
     <div className="p-6 md:p-10 max-w-6xl space-y-8">
@@ -29,6 +36,13 @@ export function CompanyMembersPageContent({
               Manage the people who have access to {companyName}.
             </Typography>
           </div>
+
+          {canInvite && allowedRoles.length > 0 ? (
+            <InviteMemberDialog
+              companySlug={companySlug}
+              allowedRoles={allowedRoles}
+            />
+          ) : null}
         </div>
       </div>
 

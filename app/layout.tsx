@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Geist_Mono } from "next/font/google";
+
+import { ToastProvider } from "@/components/ui/toaster";
 import "./globals.css";
 
 const interSans = Inter({
@@ -16,7 +18,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Local CEO — Operating System for Small Businesses",
-  description: "AI-powered operating system for small business inventory, sales, invoicing, and team operations.",
+  description:
+    "AI-powered operating system for small business inventory, sales, invoicing, and team operations.",
 };
 
 export default function RootLayout({
@@ -30,7 +33,7 @@ export default function RootLayout({
       className={`${interSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col font-sans bg-background text-foreground">
-        {children}
+        <ToastProvider>{children}</ToastProvider>
       </body>
     </html>
   );

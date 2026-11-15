@@ -1,6 +1,11 @@
 import { getCompanyContext } from "@/lib/auth/company-context";
-import { BUILT_IN_ROLES, requirePermission } from "@/lib/auth/rbac";
+import {
+  BUILT_IN_ROLES,
+  hasPermission,
+  requirePermission,
+} from "@/lib/auth/rbac";
 import { CompanyMembersPageContent } from "@/features/companies/components/company-members";
+import { getAssignableInvitationRoles } from "@/lib/invitations/policy";
 
 interface CompanyMembersPageProps {
   params: Promise<{
@@ -14,7 +19,7 @@ interface CompanyMembersPageProps {
 }
 
 function parsePageValue(rawValue: string | string[] | undefined): number {
-  const value = Array.isArray(rawValue) ? rawValue[0] : rawValue ?? "1";
+  const value = Array.isArray(rawValue) ? rawValue[0] : (rawValue ?? "1");
   const parsed = Number(value);
 
   if (!Number.isFinite(parsed) || parsed < 1) {
@@ -25,7 +30,7 @@ function parsePageValue(rawValue: string | string[] | undefined): number {
 }
 
 function parseSearchValue(rawValue: string | string[] | undefined): string {
-  const value = Array.isArray(rawValue) ? rawValue.join(" ") : rawValue ?? "";
+  const value = Array.isArray(rawValue) ? rawValue.join(" ") : (rawValue ?? "");
   return value.trim();
 }
 
@@ -39,8 +44,10 @@ function parseRoleValues(rawValue: string | string[] | undefined): string[] {
       rawRoles
         .map((role) => role.trim().toUpperCase())
         .filter((role) => Boolean(role))
-        .filter((role) => BUILT_IN_ROLES.includes(role as (typeof BUILT_IN_ROLES)[number]))
-    )
+        .filter((role) =>
+          BUILT_IN_ROLES.includes(role as (typeof BUILT_IN_ROLES)[number]),
+        ),
+    ),
   );
 }
 
@@ -57,14 +64,21 @@ export default async function CompanyMembersPage({
   const page = parsePageValue(resolvedParams.page);
   const search = parseSearchValue(resolvedParams.search);
   const roles = parseRoleValues(resolvedParams.roles);
+  const canInvite = hasPermission(context, "members.invite");
+  const allowedRoles = canInvite
+    ? [...getAssignableInvitationRoles(context.membership.role)]
+    : [];
 
   return (
     <CompanyMembersPageContent
       companyName={context.company.name}
       companyId={context.company.id}
+      companySlug={slug}
       page={page}
       search={search}
       roles={roles}
+      canInvite={canInvite}
+      allowedRoles={allowedRoles}
     />
   );
 }

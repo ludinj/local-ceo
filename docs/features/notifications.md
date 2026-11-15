@@ -1,6 +1,7 @@
 # Feature: Notifications
 
 ## Overview
+
 Notifications are a generic user-based application capability, not an invitation-only feature.
 
 The current backend implementation provides notification persistence for recipient users, with optional company context, actor metadata, read/unread tracking, and query helpers. Invitation events are the first concrete use case, but the model is intentionally reusable for future member changes, invoice reminders, inventory alerts, billing notices, reporting updates, and AI approval workflows.
@@ -30,6 +31,18 @@ This keeps notifications tied to the user who needs to see them, while allowing 
 - Read state and business lifecycle state are independent. Marking a notification as read does not accept or decline an invitation.
 - Notification persistence is currently in-app only. Email and push delivery are deferred.
 - UI surfaces such as the global notification bell, notification popover, and full notification center are not implemented yet.
+
+## Ephemeral UI toasts vs persisted application notifications
+
+Local CEO now includes a lightweight global toast layer separate from the persisted application notification model.
+
+- `components/ui/toaster.tsx` defines the toast context and `useToast()` hook.
+- `app/layout.tsx` mounts the provider so the toast context is available for all application children.
+- The provider wraps `{children}` rather than only the display surface, which is required: a standalone toaster that renders only the UI without wrapping the app tree will cause `useToast must be used within a ToastProvider`.
+- Toasts support success, error, warning, and info variants with automatic and manual dismissal and accessible live-region announcements.
+- These ephemeral UI messages are not stored as `Notification` records and are not part of the persisted user notification history.
+
+The current invite-member modal uses this toast layer for the success message after a successful invitation creation, while the underlying `Notification` model remains a distinct persisted backend capability.
 
 ## Backend services implemented
 

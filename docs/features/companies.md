@@ -16,6 +16,8 @@ The company workspace now includes a read-only members directory at `/companies/
 - Pagination is count-based and uses the same page parameter pattern as the home and company list screens.
 - The table area is wrapped in a Suspense boundary so a skeleton appears while server results are loading after search, filter, or page changes.
 - The filter controls stay mounted throughout reloads so the user does not lose focus during query updates.
+- The Members page also exposes the Invite Member button only when the server resolves the `members.invite` permission and the current membership role has assignable invitation roles.
+- `OWNER` may assign `ADMIN`, `MANAGER`, `FINANCE`, and `VIEWER`; `ADMIN` may assign `MANAGER`, `FINANCE`, and `VIEWER`.
 
 ## Current Phase 3.4 Behavior
 
@@ -93,4 +95,3 @@ A single user can belong to multiple companies with distinct roles in each compa
 - The authenticated application user ID is the source of truth for company membership queries.
 - No company workspace can be accessed from an arbitrary user ID or slug without verified server-side `CompanyMembership`.
 - The tenant boundary is enforced in Prisma by filtering through `CompanyMembership` membership records in `getCompanyContext`.
-

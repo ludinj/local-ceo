@@ -52,15 +52,16 @@ Phase 4.1 defines the following 7 initial permissions:
 
 | Permission           | OWNER | ADMIN | MANAGER | FINANCE | VIEWER |
 | :------------------- | :---: | :---: | :-----: | :-----: | :----: |
-| `company.read`       |   ✅  |   ✅  |    ✅   |    ✅   |   ✅   |
-| `company.update`     |   ✅  |   ✅  |    ❌   |    ❌   |   ❌   |
-| `members.read`       |   ✅  |   ✅  |    ✅   |    ✅   |   ✅   |
-| `members.invite`     |   ✅  |   ✅  |    ❌   |    ❌   |   ❌   |
-| `members.manage`     |   ✅  |   ✅  |    ❌   |    ❌   |   ❌   |
-| `members.remove`     |   ✅  |   ✅  |    ❌   |    ❌   |   ❌   |
-| `ownership.transfer` |   ✅  |   ❌  |    ❌   |    ❌   |   ❌   |
+| `company.read`       |  ✅   |  ✅   |   ✅    |   ✅    |   ✅   |
+| `company.update`     |  ✅   |  ✅   |   ❌    |   ❌    |   ❌   |
+| `members.read`       |  ✅   |  ✅   |   ✅    |   ✅    |   ✅   |
+| `members.invite`     |  ✅   |  ✅   |   ❌    |   ❌    |   ❌   |
+| `members.manage`     |  ✅   |  ✅   |   ❌    |   ❌    |   ❌   |
+| `members.remove`     |  ✅   |  ✅   |   ❌    |   ❌    |   ❌   |
+| `ownership.transfer` |  ✅   |  ❌   |   ❌    |   ❌    |   ❌   |
 
 ### Matrix Rules
+
 - Only `OWNER` receives `ownership.transfer`.
 - `ADMIN` receives all member and company permissions except `ownership.transfer`.
 - `MANAGER`, `FINANCE`, and `VIEWER` currently receive `company.read` and `members.read`. Future business-module permissions (sales, inventory, invoices, expenses) will differentiate them when those modules are implemented.
@@ -74,6 +75,7 @@ The RBAC implementation lives in `@/lib/auth/rbac.ts`.
 ### Key Functions & Classes
 
 #### `hasPermission(subject, permission): boolean`
+
 - Reusable, type-safe permission checker.
 - Accepts `CompanyContext`, `CompanyMembership`, `{ role: string }`, or raw role string.
 - Evaluates role permissions strictly in memory with zero database queries.
@@ -87,6 +89,7 @@ if (!hasPermission(context, "company.update")) {
 ```
 
 #### `requirePermission(subject, permission): void`
+
 - Reusable server-side guard for Server Actions, Route Handlers, and server services.
 - Calls `hasPermission(subject, permission)`.
 - Throws `AuthorizationError` if the check fails.
@@ -97,6 +100,7 @@ requirePermission(context, "members.manage");
 ```
 
 #### `AuthorizationError`
+
 - Custom `Error` subclass thrown by `requirePermission`.
 - Includes `permission`, optional `role`, and a clear failure message.
 
@@ -104,7 +108,7 @@ requirePermission(context, "members.manage");
 
 ## 5. Permissions vs. Business Invariants
 
-Authorization permissions answer whether an actor has the *capability* to perform an action type.
+Authorization permissions answer whether an actor has the _capability_ to perform an action type.
 
 Business domain invariants enforce domain safety rules separately:
 
@@ -112,6 +116,7 @@ Business domain invariants enforce domain safety rules separately:
 - **Business Invariant**: A company must ALWAYS have at least one `OWNER`. The final `OWNER` cannot be removed or demoted.
 
 Conceptually, operations perform:
+
 1. `requirePermission(context, "members.remove")` (Phase 4.1 RBAC)
 2. `verifyNotFinalOwner(targetMember)` (Phase 4.3 Member Administration)
 
@@ -125,6 +130,15 @@ Domain invariant workflows belong to Phase 4.3 and are not part of permission ma
 - Frontend visibility is **never** the security boundary.
 - All Server Actions, API routes, and data access layers must independently execute `requirePermission` server-side.
 
+### Frontend invite visibility and role filtering
+
+The Members page currently gates the Invite Member button using the server-side permission evaluation:
+
+- `hasPermission(context, "members.invite")`
+- `getAssignableInvitationRoles(context.membership.role)`
+
+This allows `OWNER` and `ADMIN` to see the action and receive the allowed target roles. `MANAGER`, `FINANCE`, and `VIEWER` do not receive the Invite Member UI. The frontend does not duplicate the role-assignment matrix or enforce invitation eligibility beyond the server-supplied list.
+
 ---
 
 ## 7. Invitation Role Policy (Implemented Backend)
@@ -133,13 +147,13 @@ Invitation creation and revocation are constrained by the same server-side autho
 
 ### Role assignment matrix for invitations
 
-| Actor role | Allowed target roles |
-| :--------- | :------------------ |
+| Actor role | Allowed target roles                    |
+| :--------- | :-------------------------------------- |
 | `OWNER`    | `ADMIN`, `MANAGER`, `FINANCE`, `VIEWER` |
-| `ADMIN`    | `MANAGER`, `FINANCE`, `VIEWER` |
-| `MANAGER`  | None |
-| `FINANCE`  | None |
-| `VIEWER`   | None |
+| `ADMIN`    | `MANAGER`, `FINANCE`, `VIEWER`          |
+| `MANAGER`  | None                                    |
+| `FINANCE`  | None                                    |
+| `VIEWER`   | None                                    |
 
 ### Enforcement rules
 

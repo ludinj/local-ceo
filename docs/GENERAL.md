@@ -222,7 +222,7 @@ Current functionality includes:
 - expiry enforcement and `effectiveStatus` display logic for expired pending invitations.
 - `createInvitationAction()`, `acceptInvitationAction()`, `declineInvitationAction()`, and `revokeInvitationAction()` server actions.
 
-This is a backend-only foundation. Frontend invitation forms, pending invitation UI, and notification center UX remain pending.
+This is the backend foundation for invitation lifecycle management; the current repository also includes the invite-member modal, member-page invite action, reusable member form primitives, and a global toast foundation. Full end-to-end runtime verification of the invitation flow and downstream notification surfaces remains pending.
 
 ---
 
@@ -349,19 +349,19 @@ Later, agents may execute controlled actions with explicit human approval.
 
 ## 7. Recommended Development Roadmap
 
-| Phase                          | Scope                                                                           | Status             |
-| :----------------------------- | :------------------------------------------------------------------------------ | :----------------- |
-| **1. Foundation**              | Next.js project, UI foundation, Tailwind CSS, shadcn/ui                         | **Completed**      |
-| **2. Authentication**          | Supabase SSR foundation, Google OAuth login, sessions, logout, protected routes | **Completed**      |
-| **3. Organizations**           | Application users, companies, memberships, creation, listing, and workspace context | **Completed**  |
-| **4. Authorization & Membership** | Roles, permissions, member administration, notification foundation             | **Backend complete; frontend integration pending** |
-| **5. Invitations & Notifications** | Invitation flow, notification persistence, recipient discovery, frontend integration | **Backend complete; frontend integration pending** |
-| **6. Business Core**           | Products, inventory, customers, invoices, and sales                             | Planned            |
-| **7. Dashboard**               | Revenue, sales, inventory, and business metrics                                 | Planned            |
-| **8. Local CEO Agent**         | AI chat + company context + read-only business tools                            | Planned            |
-| **9. AI Actions**              | Recommendations, approvals, and controlled write operations                     | Planned            |
-| **10. More Agents**            | Accountant, Marketing, HR, and specialized AI agents                            | Planned            |
-| **11. Employees**              | Employee management and human-AI agent collaboration                            | Planned            |
+| Phase                              | Scope                                                                                | Status                                                                                                                       |
+| :--------------------------------- | :----------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------- |
+| **1. Foundation**                  | Next.js project, UI foundation, Tailwind CSS, shadcn/ui                              | **Completed**                                                                                                                |
+| **2. Authentication**              | Supabase SSR foundation, Google OAuth login, sessions, logout, protected routes      | **Completed**                                                                                                                |
+| **3. Organizations**               | Application users, companies, memberships, creation, listing, and workspace context  | **Completed**                                                                                                                |
+| **4. Authorization & Membership**  | Roles, permissions, member administration, notification foundation                   | **Completed in backend; UI toast foundation added**                                                                          |
+| **5. Invitations & Notifications** | Invitation flow, notification persistence, recipient discovery, frontend integration | **Backend complete; invite modal, reusable form components, and toast foundation implemented; runtime verification pending** |
+| **6. Business Core**               | Products, inventory, customers, invoices, and sales                                  | Planned                                                                                                                      |
+| **7. Dashboard**                   | Revenue, sales, inventory, and business metrics                                      | Planned                                                                                                                      |
+| **8. Local CEO Agent**             | AI chat + company context + read-only business tools                                 | Planned                                                                                                                      |
+| **9. AI Actions**                  | Recommendations, approvals, and controlled write operations                          | Planned                                                                                                                      |
+| **10. More Agents**                | Accountant, Marketing, HR, and specialized AI agents                                 | Planned                                                                                                                      |
+| **11. Employees**                  | Employee management and human-AI agent collaboration                                 | Planned                                                                                                                      |
 
 ### Phase 2 — Authentication Breakdown
 
@@ -403,12 +403,16 @@ Email/password authentication and password recovery remain intentionally deferre
 ```text
 5.1 Invitation Foundation        → Completed (backend)
 5.2 Invitation Flow              → Completed (backend)
-5.3 Invitation Notifications & UX→ Pending UI integration
+5.3 Invite Member Frontend       → Implemented in current repo; runtime verification pending
+5.4 Global Toast Foundation      → Implemented in current repo
+5.5 Invitation UX & Notifications → Pending beyond invite modal and toast layer
 ```
 
 - **5.1 Invitation Foundation**: `Invitation` entity stores `companyId`, invited email, target role, `inviterId`, hashed token, expiration, and lifecycle status. The database migration is applied and the backend token utilities use SHA-256 hashing.
 - **5.2 Invitation Flow**: Server actions validate company membership and permissions, normalize email input, check duplicate invitations and existing memberships, and prevent invalid status transitions through conditional database updates.
-- **5.3 Invitation Notifications & UX**: Existing users receive immediate in-app invitation notifications. New users discover pending invitations after authenticated verification when matching their email. Global notification center, bell, and invitation UI remain pending.
+- **5.3 Invite Member Frontend**: The Members page exposes the Invite Member action for eligible users using server-side permission checks and server-derived role options. The modal uses RHF + Zod, `InputText`, `SimpleSelector`, and the shared dialog primitives.
+- **5.4 Global Toast Foundation**: A provider is mounted once in the root layout and a `useToast()` hook exposes `success`, `error`, `warning`, and `info` variants. This is separate from persisted application notifications.
+- **5.5 Invitation UX & Notifications**: Sent Invitations tab, invitation recipient experience, notification bell, notification center, and full invitation lifecycle UI remain pending.
 
 ---
 
