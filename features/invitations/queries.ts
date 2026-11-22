@@ -5,7 +5,8 @@ import { syncApplicationUser } from "@/lib/auth/sync-user";
 import { createClient } from "@/lib/supabase/server";
 import { getCompanyContext } from "@/lib/auth/company-context";
 import { requirePermission } from "@/lib/auth/rbac";
-import type { InvitationStatus } from "@/lib/generated/prisma/client";
+import { INVITABLE_ROLES } from "@/lib/invitations/policy";
+import type { InvitationStatus, Prisma } from "@/lib/generated/prisma/client";
 
 export async function getMyPendingInvitations() {
   const user = await syncApplicationUser();
@@ -74,20 +75,28 @@ export async function getMyPendingInvitations() {
 }
 
 type GetCompanyInvitationsOptions = {
-  status?: InvitationStatus;
+  statuses?: InvitationStatus[];
+  roles?: string[];
   page?: number;
   pageSize?: number;
 };
 
 export async function getCompanyInvitations(
   companySlug: string,
-  options: GetCompanyInvitationsOptions = {}
+  options: GetCompanyInvitationsOptions = {},
 ) {
   const context = await getCompanyContext(companySlug);
 
   requirePermission(context, "members.invite");
 
-  const { status, page = 1, pageSize = 10 } = options;
+  const {
+    statuses = ["PENDING"],
+    roles = [],
+    page = 1,
+    pageSize = 10,
+  } = options;
+
+  const validRoles = INVITABLE_ROLES.filter((role) => roles.includes(role));
 
   const safePage = Number.isSafeInteger(page) && page > 0 ? page : 1;
 
@@ -96,9 +105,73 @@ export async function getCompanyInvitations(
       ? Math.min(pageSize, 50)
       : 10;
 
-  const where = {
+  const now = new Date();
+
+  // Remove duplicated statuses.
+  const validStatuses: InvitationStatus[] = [
+    "PENDING",
+    "ACCEPTED",
+    "DECLINED",
+    "EXPIRED",
+    "REVOKED",
+  ];
+
+  const uniqueStatuses = validStatuses.filter((status) =>
+    statuses.includes(status),
+  );
+
+  // Build conditions using the effective invitation status.
+  const statusConditions: Prisma.InvitationWhereInput[] = uniqueStatuses.map(
+    (status) => {
+      if (status === "PENDING") {
+        return {
+          status: "PENDING",
+          expiresAt: {
+            gt: now,
+          },
+        };
+      }
+
+      if (status === "EXPIRED") {
+        return {
+          OR: [
+            {
+              status: "EXPIRED",
+            },
+            {
+              status: "PENDING",
+              expiresAt: {
+                lte: now,
+              },
+            },
+          ],
+        };
+      }
+
+      return {
+        status,
+      };
+    },
+  );
+
+  const where: Prisma.InvitationWhereInput = {
     companyId: context.company.id,
-    ...(status ? { status } : {}),
+
+    // Filter by one or more roles.
+    ...(roles.length > 0
+      ? {
+          role: {
+            in: validRoles,
+          },
+        }
+      : {}),
+
+    // No selected statuses means all statuses.
+    ...(uniqueStatuses.length > 0
+      ? {
+          OR: statusConditions,
+        }
+      : {}),
   };
 
   const [invitations, total] = await Promise.all([
@@ -126,10 +199,10 @@ export async function getCompanyInvitations(
       skip: (safePage - 1) * safePageSize,
       take: safePageSize,
     }),
-    prisma.invitation.count({ where }),
+    prisma.invitation.count({
+      where,
+    }),
   ]);
-
-  const now = new Date();
 
   return {
     invitations: invitations.map((invitation) => ({

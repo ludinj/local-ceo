@@ -17,6 +17,8 @@ import {
   ShoppingBag,
   User,
   Users,
+  Info,
+  TriangleAlert,
   type LucideIcon,
 } from "lucide-react";
 
@@ -40,6 +42,8 @@ const icons = {
   agents: Shield,
   members: Users,
   settings: Settings,
+  info: Info,
+  "alert-triangle": TriangleAlert,
 } satisfies Record<string, LucideIcon>;
 
 const iconSizes = {
