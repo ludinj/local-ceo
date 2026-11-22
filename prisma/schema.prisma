@@ -9,7 +9,6 @@ datasource db {
 
 model User {
   // Uses the same UUID as Supabase Auth auth.users.id.
-  // The application does not generate a separate user ID.
   id    String  @id @db.Uuid
   email String  @unique
   name  String?
@@ -17,7 +16,10 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  memberships CompanyMembership[]
+  memberships            CompanyMembership[]
+  sentInvitations        Invitation[]        @relation("InvitationInviter")
+  receivedNotifications  Notification[]      @relation("NotificationRecipient")
+  triggeredNotifications Notification[]      @relation("NotificationActor")
 }
 
 model Company {
@@ -32,7 +34,9 @@ model Company {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  memberships CompanyMembership[]
+  memberships  CompanyMembership[]
+  invitations  Invitation[]
+  notifications Notification[]
 }
 
 model CompanyMembership {
@@ -40,8 +44,6 @@ model CompanyMembership {
   userId    String @db.Uuid
   companyId String @db.Uuid
 
-  // Kept as a string during Phase 3.
-  // RBAC and the final role model will be defined in Phase 4.
   role String
 
   createdAt DateTime @default(now())
@@ -50,8 +52,66 @@ model CompanyMembership {
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
-  // A user can only have one membership per company.
   @@unique([userId, companyId])
   @@index([userId])
   @@index([companyId])
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  EXPIRED
+  REVOKED
+}
+
+model Invitation {
+  id           String           @id @default(uuid()) @db.Uuid
+  companyId    String           @db.Uuid
+  inviterId    String           @db.Uuid
+  invitedEmail String
+  role         String
+  tokenHash    String           @unique
+  expiresAt    DateTime
+  status       InvitationStatus @default(PENDING)
+  acceptedAt   DateTime?
+  declinedAt   DateTime?
+  revokedAt    DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  inviter User    @relation("InvitationInviter", fields: [inviterId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, status])
+  @@index([companyId, invitedEmail])
+  @@index([inviterId, createdAt])
+  @@index([expiresAt])
+}
+
+model Notification {
+  id          String   @id @default(uuid()) @db.Uuid
+  recipientId String   @db.Uuid
+  companyId   String?  @db.Uuid
+  actorType   String   @default("SYSTEM")
+  actorId     String?  @db.Uuid
+  type        String
+  title       String
+  message     String
+  link        String?
+  readAt      DateTime?
+  metadata    Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  recipient User     @relation("NotificationRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  company   Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  actor     User?    @relation("NotificationActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([recipientId, readAt])
+  @@index([recipientId, createdAt, id])
+  @@index([recipientId, companyId, createdAt])
+  @@index([recipientId, type])
 }

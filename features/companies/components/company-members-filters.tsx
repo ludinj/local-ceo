@@ -2,22 +2,37 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+
 import { Button } from "@/components/ui/button";
 import { InputText } from "@/components/ui/input-text";
+
 import { BUILT_IN_ROLES, type Role } from "@/lib/auth/rbac";
+import { MultiSelector } from "@/components/ui/MultiSelector";
 
 interface CompanyMembersFiltersProps {
   search: string;
   roles: string[];
 }
 
-export function CompanyMembersFilters({ search, roles }: CompanyMembersFiltersProps) {
+const ROLE_OPTIONS = BUILT_IN_ROLES.map((role) => ({
+  label: role.charAt(0) + role.slice(1).toLowerCase(),
+  value: role,
+}));
+
+export function CompanyMembersFilters({
+  search,
+  roles,
+}: CompanyMembersFiltersProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
   const [searchInput, setSearchInput] = useState(search);
-  const selectedRoles = useMemo(() => new Set(roles), [roles]);
+
+  const selectedRoles = useMemo(
+    () => BUILT_IN_ROLES.filter((role) => roles.includes(role)),
+    [roles],
+  );
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -36,10 +51,10 @@ export function CompanyMembersFilters({ search, roles }: CompanyMembersFiltersPr
         params.delete("search");
       }
 
-      params.delete("page");
       params.set("page", "1");
 
       const query = params.toString();
+
       router.replace(query ? `${pathname}?${query}` : pathname, {
         scroll: false,
       });
@@ -48,27 +63,16 @@ export function CompanyMembersFilters({ search, roles }: CompanyMembersFiltersPr
     return () => window.clearTimeout(timeoutId);
   }, [pathname, router, searchInput, searchParams]);
 
-  function updateRoles(nextRole: Role) {
-    const params = new URLSearchParams(searchParams.toString());
-    const currentRoles = Array.from(
-      new Set(
-        (searchParams.get("roles") ?? "")
-          .split(",")
-          .map((role) => role.trim().toUpperCase())
-          .filter(Boolean)
-          .filter((role) => BUILT_IN_ROLES.includes(role as Role))
-      )
+  function updateRoles(nextRoles: string[]) {
+    const validRoles = new Set(
+      nextRoles.filter((role): role is Role =>
+        BUILT_IN_ROLES.includes(role as Role),
+      ),
     );
 
-    const nextRoles = new Set(currentRoles);
+    const orderedRoles = BUILT_IN_ROLES.filter((role) => validRoles.has(role));
 
-    if (nextRoles.has(nextRole)) {
-      nextRoles.delete(nextRole);
-    } else {
-      nextRoles.add(nextRole);
-    }
-
-    const orderedRoles = BUILT_IN_ROLES.filter((role) => nextRoles.has(role));
+    const params = new URLSearchParams(searchParams.toString());
 
     if (orderedRoles.length > 0) {
       params.set("roles", orderedRoles.join(","));
@@ -76,23 +80,26 @@ export function CompanyMembersFilters({ search, roles }: CompanyMembersFiltersPr
       params.delete("roles");
     }
 
-    params.delete("page");
     params.set("page", "1");
 
     const query = params.toString();
+
     router.replace(query ? `${pathname}?${query}` : pathname, {
       scroll: false,
     });
   }
 
   function clearFilters() {
+    setSearchInput("");
+
     const params = new URLSearchParams(searchParams.toString());
+
     params.delete("search");
     params.delete("roles");
     params.delete("page");
-    params.set("page", "1");
 
     const query = params.toString();
+
     router.replace(query ? `${pathname}?${query}` : pathname, {
       scroll: false,
     });
@@ -101,43 +108,40 @@ export function CompanyMembersFilters({ search, roles }: CompanyMembersFiltersPr
   const hasActiveFilters = Boolean(search || roles.length > 0);
 
   return (
-    <div className="space-y-4 rounded-xl border border-border bg-card p-4">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div className="w-full md:max-w-md">
-          <InputText
-            type="search"
-            value={searchInput}
-            onChange={(event) => setSearchInput(event.target.value)}
-            placeholder="Search members..."
-            aria-label="Search members"
-            className="w-full"
+    <div className="rounded-xl border border-border bg-card p-4">
+      <div className="flex flex-col gap-3 md:flex-row md:items-end">
+        <InputText
+          label="Search"
+          type="search"
+          value={searchInput}
+          onChange={(event) => setSearchInput(event.target.value)}
+          placeholder="Search members..."
+          aria-label="Search members"
+          className="w-full"
+          containerClassName="w-80"
+        />
+
+        <div className="w-full md:w-60">
+          <MultiSelector
+            label="Roles"
+            placeholder="All roles"
+            value={selectedRoles}
+            onValueChange={updateRoles}
+            options={ROLE_OPTIONS}
           />
         </div>
 
         {hasActiveFilters ? (
-          <Button type="button" variant="ghost" size="sm" onClick={clearFilters}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={clearFilters}
+            className="md:mb-0.5"
+          >
             Clear filters
           </Button>
         ) : null}
-      </div>
-
-      <div className="flex flex-wrap gap-2">
-        {BUILT_IN_ROLES.map((role) => {
-          const isSelected = selectedRoles.has(role);
-
-          return (
-            <Button
-              key={role}
-              type="button"
-              variant={isSelected ? "default" : "outline"}
-              size="sm"
-              onClick={() => updateRoles(role)}
-              className="rounded-full"
-            >
-              {role}
-            </Button>
-          );
-        })}
       </div>
     </div>
   );

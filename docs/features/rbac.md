@@ -52,15 +52,16 @@ Phase 4.1 defines the following 7 initial permissions:
 
 | Permission           | OWNER | ADMIN | MANAGER | FINANCE | VIEWER |
 | :------------------- | :---: | :---: | :-----: | :-----: | :----: |
-| `company.read`       |   ✅  |   ✅  |    ✅   |    ✅   |   ✅   |
-| `company.update`     |   ✅  |   ✅  |    ❌   |    ❌   |   ❌   |
-| `members.read`       |   ✅  |   ✅  |    ✅   |    ✅   |   ✅   |
-| `members.invite`     |   ✅  |   ✅  |    ❌   |    ❌   |   ❌   |
-| `members.manage`     |   ✅  |   ✅  |    ❌   |    ❌   |   ❌   |
-| `members.remove`     |   ✅  |   ✅  |    ❌   |    ❌   |   ❌   |
-| `ownership.transfer` |   ✅  |   ❌  |    ❌   |    ❌   |   ❌   |
+| `company.read`       |  ✅   |  ✅   |   ✅    |   ✅    |   ✅   |
+| `company.update`     |  ✅   |  ✅   |   ❌    |   ❌    |   ❌   |
+| `members.read`       |  ✅   |  ✅   |   ✅    |   ✅    |   ✅   |
+| `members.invite`     |  ✅   |  ✅   |   ❌    |   ❌    |   ❌   |
+| `members.manage`     |  ✅   |  ✅   |   ❌    |   ❌    |   ❌   |
+| `members.remove`     |  ✅   |  ✅   |   ❌    |   ❌    |   ❌   |
+| `ownership.transfer` |  ✅   |  ❌   |   ❌    |   ❌    |   ❌   |
 
 ### Matrix Rules
+
 - Only `OWNER` receives `ownership.transfer`.
 - `ADMIN` receives all member and company permissions except `ownership.transfer`.
 - `MANAGER`, `FINANCE`, and `VIEWER` currently receive `company.read` and `members.read`. Future business-module permissions (sales, inventory, invoices, expenses) will differentiate them when those modules are implemented.
@@ -74,6 +75,7 @@ The RBAC implementation lives in `@/lib/auth/rbac.ts`.
 ### Key Functions & Classes
 
 #### `hasPermission(subject, permission): boolean`
+
 - Reusable, type-safe permission checker.
 - Accepts `CompanyContext`, `CompanyMembership`, `{ role: string }`, or raw role string.
 - Evaluates role permissions strictly in memory with zero database queries.
@@ -87,6 +89,7 @@ if (!hasPermission(context, "company.update")) {
 ```
 
 #### `requirePermission(subject, permission): void`
+
 - Reusable server-side guard for Server Actions, Route Handlers, and server services.
 - Calls `hasPermission(subject, permission)`.
 - Throws `AuthorizationError` if the check fails.
@@ -97,6 +100,7 @@ requirePermission(context, "members.manage");
 ```
 
 #### `AuthorizationError`
+
 - Custom `Error` subclass thrown by `requirePermission`.
 - Includes `permission`, optional `role`, and a clear failure message.
 
@@ -104,7 +108,7 @@ requirePermission(context, "members.manage");
 
 ## 5. Permissions vs. Business Invariants
 
-Authorization permissions answer whether an actor has the *capability* to perform an action type.
+Authorization permissions answer whether an actor has the _capability_ to perform an action type.
 
 Business domain invariants enforce domain safety rules separately:
 
@@ -112,6 +116,7 @@ Business domain invariants enforce domain safety rules separately:
 - **Business Invariant**: A company must ALWAYS have at least one `OWNER`. The final `OWNER` cannot be removed or demoted.
 
 Conceptually, operations perform:
+
 1. `requirePermission(context, "members.remove")` (Phase 4.1 RBAC)
 2. `verifyNotFinalOwner(targetMember)` (Phase 4.3 Member Administration)
 
@@ -124,3 +129,45 @@ Domain invariant workflows belong to Phase 4.3 and are not part of permission ma
 - Frontend UI logic may use `hasPermission` to conditionally display or disable UI elements.
 - Frontend visibility is **never** the security boundary.
 - All Server Actions, API routes, and data access layers must independently execute `requirePermission` server-side.
+
+### Members & Invitations Workspace Protection
+
+The Members page at `/companies/[slug]/members` enforces layered server-side security:
+
+1. **Route Level Access**: Always enforces `requirePermission(context, "members.read")`.
+2. **Invitations Tab Direct Access**: If `tab === "invitations"`, the server page component explicitly enforces `requirePermission(context, "members.invite")`. A non-permitted member tampering with query parameters will encounter an `AuthorizationError`.
+3. **Invite Member Visibility**: The "Invite Member" action button is only rendered if `hasPermission(context, "members.invite")` evaluates to true and `getAssignableInvitationRoles(role)` returns at least one assignable role.
+4. **Revocation Button Visibility**: Only rendered for invitations where `invitation.effectiveStatus === "PENDING"` and the actor's assignable roles include the invitation's role (`allowedRoles.includes(invitation.role)`).
+
+---
+
+## 7. Invitation Role Policy & Revocation Authorization
+
+Invitation creation and revocation are constrained by the server-side authorization model and role policy.
+
+### Role assignment matrix for invitations
+
+| Actor role | Allowed target roles                    |
+| :--------- | :-------------------------------------- |
+| `OWNER`    | `ADMIN`, `MANAGER`, `FINANCE`, `VIEWER` |
+| `ADMIN`    | `MANAGER`, `FINANCE`, `VIEWER`          |
+| `MANAGER`  | None                                    |
+| `FINANCE`  | None                                    |
+| `VIEWER`   | None                                    |
+
+### Enforcement rules
+
+- Only `OWNER` and `ADMIN` have the `members.invite` permission.
+- Assignment and revocation enforce the same role restrictions through `canAssignInvitationRole()` and associated permission checks. An `ADMIN` cannot revoke an invitation issued for an `ADMIN` (since `ADMIN` cannot assign `ADMIN`), nor can any actor revoke an invitation for a role above or equal to their assignment policy.
+- `OWNER` cannot be assigned through ordinary invitations; the policy intentionally excludes `OWNER` from `INVITABLE_ROLES`.
+- Invitations never create `CompanyMembership` records before acceptance.
+- Company authorization is enforced inside server actions using `getCompanyContext()` and `requirePermission()`.
+- A user may receive invitations from multiple companies, but each invitation is validated against the target email and company membership state before it can be accepted.
+- Only the authenticated recipient whose verified email matches the invited address may accept or decline a pending invitation.
+- Revocation actions perform an atomic conditional update (`status: "PENDING", expiresAt: { gt: now }`) inside Prisma to prevent race conditions against concurrent acceptance.
+
+### Related implementation
+
+- `lib/invitations/policy.ts` defines the invitable roles and role assignment rules.
+- `lib/actions/invitations.ts` applies the policy in `createInvitationAction()` and `revokeInvitationAction()`.
+- `lib/invitations/recipient.ts` ensures the authenticated user is verified before invitation acceptance or decline.

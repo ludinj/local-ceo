@@ -4,18 +4,34 @@
 
 Companies serve as the multi-tenant isolation boundary for Local CEO. All business data, inventory, invoices, and AI agent interactions are strictly scoped to a specific company.
 
-## Current Phase 4.2 Behavior
+## Current Phase 5 Behavior: Members & Invitations Workspace
 
-The company workspace now includes a read-only members directory at `/companies/[slug]/members`. Membership data is scoped to the authenticated company and is filtered in PostgreSQL using the active `CompanyMembership` boundary.
+The company workspace directory at `/companies/[slug]/members` now features a dual-tab management interface:
 
-### Members listing
+### 1. Members Tab
 
-- The route enforces `members.read` access against the current company context before querying members.
-- Search matches display names and email addresses case-insensitively within the company membership set.
-- Role filters limit the result set to the selected built-in roles while preserving a clear URL-based query contract.
-- Pagination is count-based and uses the same page parameter pattern as the home and company list screens.
-- The table area is wrapped in a Suspense boundary so a skeleton appears while server results are loading after search, filter, or page changes.
-- The filter controls stay mounted throughout reloads so the user does not lose focus during query updates.
+- Accessible to any company member with `members.read` permission.
+- Scoped server-side query filtering active company members in PostgreSQL.
+- Server-side case-insensitive search by member name or email.
+- Multi-role filtering powered by the generic `MultiSelector` component, supporting multiple `BUILT_IN_ROLES` (`OWNER`, `ADMIN`, `MANAGER`, `FINANCE`, `VIEWER`).
+- Count-based pagination preserving active search and role parameters.
+- Suspense boundary with `CompanyMembersTableSkeleton` loading state that preserves filter control mount and focus.
+
+### 2. Invitations Tab
+
+- Scoped sent invitations directory for the active company.
+- Access restricted server-side: navigating to or requesting `tab=invitations` executes `requirePermission(context, "members.invite")`.
+- Multi-status filtering via `MultiSelector`: `PENDING`, `ACCEPTED`, `DECLINED`, `EXPIRED`, `REVOKED`. Defaults to `PENDING`; empty selection (`status=ALL`) returns all statuses.
+- Multi-role filtering via `MultiSelector` for `INVITABLE_ROLES` (`inviteRoles`).
+- Dynamic effective expiration handling: unexpired pending invitations vs expired pending invitations are derived accurately at query and presentation time.
+- Invitation revocation: eligible pending invitations render a "Revoke" action wired to `RevokeInvitationButton`, `ConfirmationDialog`, and `revokeInvitationAction()`.
+- Count-based pagination with automatic page reset upon filter modifications.
+
+### Header & Actions
+
+- When the authenticated member possesses `members.invite` permission and assignable target roles according to `getAssignableInvitationRoles(role)`, an "Invite Member" action button is rendered in the header.
+- Clicking the button launches `InviteMemberDialog` for email and role assignment, executing `createInvitationAction()`.
+- `OWNER` may assign `ADMIN`, `MANAGER`, `FINANCE`, and `VIEWER`; `ADMIN` may assign `MANAGER`, `FINANCE`, and `VIEWER`. Other roles cannot invite.
 
 ## Current Phase 3.4 Behavior
 
@@ -93,4 +109,3 @@ A single user can belong to multiple companies with distinct roles in each compa
 - The authenticated application user ID is the source of truth for company membership queries.
 - No company workspace can be accessed from an arbitrary user ID or slug without verified server-side `CompanyMembership`.
 - The tenant boundary is enforced in Prisma by filtering through `CompanyMembership` membership records in `getCompanyContext`.
-
