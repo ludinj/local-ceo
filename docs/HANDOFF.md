@@ -19,7 +19,7 @@
 ## Current Project Status & Baseline
 
 - **Repository Path**: `/Users/mecbook/Desktop/react/local-ceo`
-- **Current Phase**: **Phase 5 — Member Invitations & Notifications (Backend foundation complete; frontend invite flow and toast foundation implemented in the repo, runtime verification still pending)**
+- **Current Phase**: **Phase 5 — Member Invitations & Notifications (Backend foundation complete; Members and Invitations tabs, multi-status & role filters, invite modal, revocation flow with confirmation dialog, and shared UI components implemented in repo; runtime verification pending for latest filtering and revocation additions)**
 - **Current Authentication Strategy**: **Google OAuth via Supabase Auth**
 - **Database**: **Supabase PostgreSQL**
 - **ORM**: **Prisma ORM 7.10**
@@ -254,7 +254,7 @@ UNIQUE(userId, companyId)
 
 ---
 
-## EXACT NEXT TASK
+## Historical Implementation — Completed
 
 ### Phase 3.3 — Company Creation
 
@@ -314,7 +314,7 @@ Completed implementation:
 
 ---
 
-## EXACT NEXT TASK
+## Historical Implementation — Completed
 
 ### Phase 4.2 — Members (Completed)
 
@@ -363,48 +363,186 @@ Completed implementation:
 
 ---
 
-## Phase 5 — Invitations & Notifications (Backend complete; frontend invite flow and UI foundation implemented in the repo)
+## Phase 5 — Invitations & Notifications
 
-#### 5.1 Invitation Foundation (Completed in backend scope)
+### Summary of Latest Development Session (November 22, 2026)
 
-- `Invitation` entity stores `companyId`, `inviterId`, invited email, target role, hashed token, expiration, and lifecycle status.
-- Invitation statuses: `PENDING`, `ACCEPTED`, `DECLINED`, `EXPIRED`, `REVOKED`.
-- Invitation tokens are persisted as SHA-256 hashes; original values cannot be reconstructed for future outbound email delivery.
-- Queries support `getMyPendingInvitations()` and authorized company-scoped listing with pagination and `effectiveStatus` display handling.
+During the November 22, 2026 session, development focused on completing the sent invitation management experience inside the company workspace, introducing advanced multi-select filtering, implementing invitation revocation with a confirmation dialog, and standardizing reusable UI components.
 
-#### 5.2 Invitation Flow (Completed in backend scope)
+#### 1. Invitation Creation Integration
 
-- Authorized company members create invitations only after server-side membership and permission validation.
-- Invitation creation rejects duplicate pending invitations, existing members, invalid role assignment, and unauthorized actors.
-- **Membership vs Invitation Distinction**: An invitation is a pending access offer. Creating an invitation does not create a `CompanyMembership`; a membership is created only when the invitation is explicitly accepted by the verified user.
-- **Onboarding Scenarios**:
-  - _Existing Local CEO user_: Matched by verified email and receives in-app notification when invited.
-  - _New User_: Invitation remains stored by email and becomes discoverable after verified authentication and email matching.
-  - Browser query params or client-provided email values are never trusted for authorization.
-- Authenticated invited users accept or decline pending invitations only after server-side recipient matching.
-- `CompanyMembership` is created only upon successful acceptance, and the invitation state is updated atomically to `ACCEPTED`.
-- `revokeInvitationAction()` allows authorized members to cancel pending invitations, and invalid lifecycle transitions are prevented via conditional updates.
+- **Dialog & Form**: `InviteMemberDialog` (`features/invitations/components/invite-member-dialog.tsx`) provides the modal interface for inviting new members. Built with React Hook Form, `@hookform/resolvers/zod`, `InputText`, and `SimpleSelector`.
+- **Server Action**: Fully integrated with `createInvitationAction()` (`lib/actions/invitations.ts`).
+- **Policy-Governed Roles**: Available target roles are strictly derived server-side via `getAssignableInvitationRoles(context.membership.role)` from `lib/invitations/policy.ts`. `OWNER` can assign `ADMIN`, `MANAGER`, `FINANCE`, `VIEWER`; `ADMIN` can assign `MANAGER`, `FINANCE`, `VIEWER`. Other roles cannot invite. `OWNER` can never be assigned via invitation.
+- **Validation & Duplicate Prevention**: Validates email format, checks for existing company membership, and blocks duplicate active pending invitations for the same email and company.
+- **Expiration & Notification**: Sets a 7-day expiration (`INVITATION_DURATION_DAYS = 7`). Immediately creates an in-app `Notification` record if the invited recipient already has an application `User` account.
+- **Feedback**: Provides immediate user feedback via the global toast system (`toast.success("Invitation created successfully.")`). On failure, preserves user input in the modal and displays server errors in the dialog.
 
-#### 5.3 Frontend Invite Member Flow (Implemented in current repo; runtime verification still pending)
+#### 2. Members and Invitations Tabs (`/companies/[slug]/members`)
 
-- The members page renders an Invite Member button when the authenticated company context passes the server-side `members.invite` permission check.
-- Role options are derived from `getAssignableInvitationRoles(context.membership.role)` on the server and passed to the client modal; the front-end does not duplicate the role-matrix business rules.
-- `InviteMemberDialog` uses React Hook Form + Zod, `InputText`, and `SimpleSelector`, and it mounts the dialog using the existing Base UI/shadcn primitives.
-- The current client form submits to the real `createInvitationAction()` server action with the validated email and role payload.
-- The global toast foundation is implemented through a provider in the root layout and a `useToast()` hook for success, error, warning, and info messages.
-- Full end-to-end verification of the invite lifecycle still needs runtime testing in Supabase/PostgreSQL and browser-based acceptance flows.
+The workspace members route now supports a dual-tab management layout:
 
-#### 5.4 Notification UX (Backend implemented; selected UI primitives added)
+- **Tabbed Interface**: `CompanyMembersPageContent` (`features/companies/components/company-members.tsx`) switches between `Members` (`tab=members` or default) and `Invitations` (`tab=invitations`).
+- **Direct Access Protection**: The page component (`app/companies/[slug]/members/page.tsx`) enforces server-side authorization:
+  ```ts
+  requirePermission(context, "members.read");
+  const canInvite = hasPermission(context, "members.invite");
+  if (tab === "invitations") {
+    requirePermission(context, "members.invite");
+  }
+  ```
+  Users without `members.invite` cannot access or view the Invitations tab.
+- **Members Directory**: Retains the existing member directory with server-side search, multi-role filter via `MultiSelector`, and count-based pagination.
+- **Invitations Directory**: `CompanyInvitationsList` (`features/invitations/components/company-invitations-list.tsx`) lists sent company invitations with email, role badge (`MemberRoleBadge`), effective status badge (`InvitationStatusBadge`), formatted creation date, expiration date, count-based pagination, and revocation action.
 
-- Generic in-app notification persistence is implemented and supports creation, unread counts, list retrieval, and mark-as-read behavior.
-- The app now includes a global ephemeral toast layer separate from persisted `Notification` records.
-- Global notification bell, popover, notification center, invitation list UI, and recipient invitation experience remain pending.
+#### 3. Multi-Select Status & Role Filtering
 
-### Next Development Task
+The Invitations tab filter control (`CompanyInvitationsFilters` in `features/invitations/components/company-invitations-filters.tsx`) supports advanced multi-selection:
 
-**Phase 5 — Verify and complete the invitation workflow**
+- **Statuses Supported**: `PENDING`, `ACCEPTED`, `DECLINED`, `EXPIRED`, `REVOKED`.
+- **Default Status**: `PENDING` is the default filter. When only `PENDING` is selected, the `status` parameter is omitted from the URL.
+- **Multiple Statuses**: Multiple statuses can be selected simultaneously (e.g., `?tab=invitations&status=PENDING,ACCEPTED`).
+- **Empty Selection (`ALL`)**: Deselecting all status options causes the URL to set `status=ALL`. The server translates this into an empty status constraint (`statuses = []`), returning all invitations regardless of status.
+- **Role Filtering**: Multi-selection of invitable roles via `MultiSelector`, serialized to the `inviteRoles` URL parameter.
+- **Clear Filters**: "Clear filters" resets both `status` and `inviteRoles` and deletes `page`, returning the user to the default Pending view.
+- **Pagination Reset**: Any change to status or role filters immediately deletes the `page` parameter, resetting navigation to page 1.
+- **Effective Expiration in Queries**: `getCompanyInvitations()` in `features/invitations/queries.ts` accurately queries effective expiration:
+  - Filtering for `PENDING`: queries `{ status: "PENDING", expiresAt: { gt: now } }`.
+  - Filtering for `EXPIRED`: queries `{ OR: [{ status: "EXPIRED" }, { status: "PENDING", expiresAt: { lte: now } }] }`.
+  - Display items calculate `effectiveStatus`: `status === "PENDING" && expiresAt <= now ? "EXPIRED" : status`.
 
-The next session should verify the actual runtime invite submission, then continue with the sent Invitations tab, revoke actions, recipient acceptance/decline UX, and the authenticated notification bell and history surfaces while keeping the existing server-side authorization and data model intact.
+#### 4. Invitation Revocation Flow
+
+- **Component**: `RevokeInvitationButton` (`features/invitations/components/revoke-invitation-button.tsx`).
+- **Eligibility**: Revocation action is only rendered when `invitation.effectiveStatus === "PENDING"` AND `allowedRoles.includes(invitation.role)`.
+- **Confirmation Dialog**: Clicking Revoke opens `ConfirmationDialog` with title "Revoke invitation", descriptive warning, confirm label "Revoke", and destructive styling (`destructive={true}`).
+- **Server Action**: `revokeInvitationAction({ companySlug, invitationId })` in `lib/actions/invitations.ts`:
+  - Enforces `members.invite` permission server-side.
+  - Ensures tenant scoping by matching `companyId`.
+  - Verifies actor's role can manage the target role via `canAssignInvitationRole()`.
+  - Verifies invitation status is `PENDING`.
+  - Executes atomic conditional update (`updateMany` where `status = "PENDING"` and `expiresAt > now`), preventing race conditions against concurrent acceptance.
+  - Revalidates `/companies/[slug]/members` and `/home`.
+- **Feedback**: Triggers `toast.success("Invitation revoked successfully.")` and `router.refresh()` on success, or `toast.error(result.error)` on failure.
+
+#### 5. Reusable Shared UI Improvements
+
+- **`MultiSelector`** (`components/ui/MultiSelector.tsx`): Generic popover-based multi-option selection component built on `@base-ui/react/popover`. Presentation-oriented and completely decoupled from domain logic.
+- **`ConfirmationDialog`** (`components/ui/confirmation-dialog.tsx`): Reusable confirmation modal with title, description, loading state, and destructive/standard action buttons.
+- **`SimpleSelector`** (`components/ui/simple-selector.tsx`): Single-select wrapper over shadcn/Base UI `Select`.
+- **`InputText`** (`components/ui/input-text.tsx`): Standard text input wrapper with integrated label, error, and helperText.
+- **`Button`** (`components/ui/button.tsx`): Styled action button supporting design-system variants and sizes.
+- **`Typography`** (`components/ui/typography.tsx`): Centralized typography system supporting semantic variants (`header-1` to `header-4`, `subtitle`, `regular`, `small`, `muted`, `caption`, `code`, and aliases).
+- **`AppIcon`** (`components/ui/app-icon.tsx`): Centralized Lucide icon registry, extended with `info` and `alert-triangle`.
+- **`ToastProvider` / `useToast`** (`components/ui/toaster.tsx`): Lightweight global ephemeral notification system mounted in `app/layout.tsx`.
+
+---
+
+## UI Component Reuse Conventions
+
+> ### ⚠️ CRITICAL RULE FOR FUTURE AI AGENTS (MANDATORY)
+>
+> If you are asked to create or modify a UI feature but do not have enough context about the existing shared components, **DO NOT guess their APIs or recreate them.**
+>
+> First inspect their implementations in `components/ui/`.
+>
+> If the relevant component source is unavailable or cannot be inspected, explicitly ask the user to share the component code before proceeding:
+>
+> _"Before implementing this component, please share your existing Button, Typography, MultiSelector, or other relevant UI component so I can reuse your established API and styling conventions."_
+
+All future frontend development MUST strictly follow these 16 UI conventions:
+
+1. **Inspect First**: Before creating a new UI component, inspect `components/ui/` and identify whether a suitable reusable component already exists.
+2. **Avoid Native HTML Duplication**: Prefer existing UI components over native HTML elements with duplicated styling whenever appropriate.
+3. **Typography**: Use the existing `Typography` component for application text, headings, labels, and related content when its API supports the required semantics (`<Typography variant="...">`).
+4. **Button**: Use the shared `Button` component for application actions rather than repeatedly styling native `<button>` tags.
+5. **AppIcon Registry**: Use `AppIcon` instead of importing Lucide icons directly into feature components or introducing inline SVG icons when the required icon is available through `AppIcon`.
+6. **Extend AppIcon**: If an icon is missing, inspect the `AppIcon` registry in `components/ui/app-icon.tsx` and extend it when appropriate instead of bypassing the centralized icon system.
+7. **InputText**: Use `InputText` for standard text input functionality.
+8. **SimpleSelector**: Use `SimpleSelector` for single-option selection.
+9. **MultiSelector**: Use `MultiSelector` for selecting multiple options.
+10. **Generic MultiSelector**: `MultiSelector` must remain strictly generic and reusable. It must not contain feature-specific knowledge about roles, invitations, companies, or database models.
+11. **Filter Ownership**: Filter components should own URL parameter management and business-specific filter behavior. Shared UI selectors should remain presentation-oriented and controlled through their props.
+12. **ConfirmationDialog**: Use `ConfirmationDialog` for confirmation workflows (e.g. deletions, revocations, cancellations) instead of creating one-off confirmation dialogs or using `window.confirm()`.
+13. **Ephemeral Toasts**: Use the existing global toast system (`useToast()`) for ephemeral success, error, warning, and informational feedback.
+14. **Primitives & Patterns**: Prefer existing Base UI/shadcn primitives and established design-system patterns.
+15. **Accessibility**: Preserve accessibility, keyboard navigation, semantic HTML, and responsive styling.
+16. **No Redundant Abstractions**: Avoid introducing new dependencies or unnecessary UI abstractions when an existing component can satisfy the requirement.
+
+---
+
+## Verification Status & Implementation Boundaries
+
+### Verification Already Performed
+
+- `npm run lint`: Passed with zero errors.
+- `npm run type-check`: Passed with zero TypeScript errors.
+- Visual inspection: Earlier visual verification performed on the initial Invitations table and filter layout.
+
+### Implemented Code vs. Runtime Verification Status
+
+- **Implemented in Repository**:
+  - `InviteMemberDialog` integrated with `createInvitationAction()`.
+  - Members / Invitations tabbed route layout with server-side protection.
+  - `MultiSelector` component and integration into both tabs.
+  - Multi-status filter with `PENDING` default, multiple selection, and `ALL` empty selection.
+  - Multi-role filter for invitations (`inviteRoles`).
+  - Effective expiration query handling in Prisma.
+  - `RevokeInvitationButton` and `ConfirmationDialog`.
+  - `revokeInvitationAction()` with atomic conditional updates.
+  - Global toast feedback.
+- **Unverified Runtime Behavior (Pending Live Testing)**:
+  - Multi-status invitation filtering combinations in the live database.
+  - Combined role and status filter queries in PostgreSQL.
+  - Empty status selection (`status=ALL`) query execution.
+  - Default `PENDING` restoration upon clearing filters.
+  - Pagination boundary conditions across filtered result sets.
+  - Live execution of `ConfirmationDialog` confirm/cancel actions.
+  - Live revocation success and failure toast feedback.
+  - Permission denial behavior when non-permitted users attempt direct navigation to `?tab=invitations`.
+  - Immediate appearance of newly created invitations in the list after modal submission.
+
+---
+
+## EXACT NEXT TASK
+
+### Step 1: Verification Protocol for Latest Phase 5 Changes
+
+Before writing new features, verify the implemented invitation management functionality:
+
+1. Verify multi-status invitation filtering (`PENDING`, `ACCEPTED`, `DECLINED`, `EXPIRED`, `REVOKED`).
+2. Verify combined role (`inviteRoles`) and status (`status`) filtering.
+3. Verify empty status selection (`status=ALL` showing all records).
+4. Verify default `PENDING` behavior when parameters are cleared.
+5. Verify pagination reset on filter changes and correct pagination navigation.
+6. Verify `ConfirmationDialog` opening, cancellation, and confirmation flows.
+7. Verify revocation success, error handling, atomic updates, and route revalidation.
+8. Verify toast feedback for creation and revocation.
+9. Verify authorization restrictions (`members.invite` guard on tab and action).
+10. Verify fresh invitation appearance after creation; add or verify `router.refresh()` only if necessary.
+11. Run `npm run lint`, `npm run type-check`, and `npm run build`.
+
+### Step 2: Next Major Feature — RECEIVED INVITATIONS (Recipient UX)
+
+Implement the recipient-side invitation experience allowing authenticated users to review and respond to invitations sent to their email address.
+
+**Expected Scope**:
+
+- Display pending invitations belonging to the authenticated user's verified email.
+- Integrate the existing `getMyPendingInvitations()` query (`features/invitations/queries.ts`).
+- Provide clear Accept and Decline actions.
+- Reuse `acceptInvitationAction()` and `declineInvitationAction()` (`lib/actions/invitations.ts`).
+- Ensure `CompanyMembership` is created atomically upon acceptance.
+- Refresh company memberships and user context after acceptance so the new company appears in the user's workspace.
+- Handle expired, revoked, or otherwise unavailable invitations gracefully.
+- Preserve company tenant isolation and recipient email verification boundaries.
+
+### Step 3: Notification Center & UX (Following Recipient Invitations)
+
+- Global notification bell in the application navigation header.
+- Unread notification count badge.
+- Notification popover with recent events and mark-as-read capability.
+- Full notification history surface.
 
 ---
 
@@ -426,7 +564,7 @@ The next session should verify the actual runtime invite submission, then contin
    - Roles must never be stored globally on `User`.
 
 5. **Server-side authorization**
-   - Hiding UI elements is never the security boundary.
+   - Hiding UI elements is never the security boundary. All Server Actions and data queries must validate permissions server-side.
 
 6. **Progressive data modeling**
    - Inventory, invoices, HR, marketing, and AI tables must be added when those features are implemented.
@@ -445,9 +583,10 @@ The next session should verify the actual runtime invite submission, then contin
 10. **Database secrets remain server-only**
     - `DATABASE_URL` and `DIRECT_URL` must never be exposed through `NEXT_PUBLIC_*`.
 
-11. **Mandatory UI Component Usage (`components/ui`)**
-    - Whenever appropriate, developers and AI agents MUST always use existing components in the `components/ui` folder (such as `Typography`, `AppIcon`, `Button`, `Input`, `Dialog`, `Select`, `Tooltip`, etc.) rather than writing raw HTML tags or duplicating styles.
-    - For text rendering specifically, always use `<Typography variant="...">` for headings, subtitles, body text, labels, captions, and badges. Add new typography variants to `components/ui/typography.tsx` when a new typographic style is needed.
+11. **Mandatory UI Component Reuse (`components/ui`)**
+    - Developers and AI agents MUST follow the 16 UI Component Reuse Conventions detailed above.
+    - Always use `<Typography variant="...">` for text and `<Button>` for actions.
+    - Never guess component APIs—inspect `components/ui/` or ask the user for component source code.
 
 12. **Notification Read State vs Domain Action State**
     - Notification read state (`readAt`) and domain action state (e.g., `invitation.status = PENDING`) are separate concerns.

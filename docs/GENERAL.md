@@ -116,9 +116,7 @@ Prisma does not manage Supabase internal authentication tables.
 
 Roles belong to `CompanyMembership`, not globally to `User`.
 
-During Phase 3, role metadata remains intentionally simple.
-
-The complete role and permission model will be implemented during Phase 4 — RBAC.
+Phase 3 introduced membership-specific role metadata. Phase 4 implemented the initial built-in RBAC role and permission model in application code. Additional permissions will be introduced as business modules are developed; custom roles remain deferred.
 
 ### Tenant-Owned Data
 
@@ -212,17 +210,24 @@ The same authenticated user may therefore have different roles across different 
 
 ### Invitations
 
-The backend invitation foundation is implemented and in use for company onboarding workflows.
+The member invitation system is implemented across backend services and frontend workspace management.
 
 Current functionality includes:
 
-- `Invitation` records scoped to a company and inviter.
+- `Invitation` records scoped to a company and inviter with 7-day expiration.
 - `invitedEmail` normalization and verified-recipient matching.
-- secure token generation with SHA-256 hashing before persistence.
-- expiry enforcement and `effectiveStatus` display logic for expired pending invitations.
-- `createInvitationAction()`, `acceptInvitationAction()`, `declineInvitationAction()`, and `revokeInvitationAction()` server actions.
+- Secure token generation with SHA-256 hashing prior to database storage.
+- Backend queries supporting both recipient pending invitations (`getMyPendingInvitations`) and company-scoped sent invitations (`getCompanyInvitations`).
+- Dynamic effective expiration handling: backend status query filters for `PENDING` (`expiresAt > now`) and `EXPIRED` (`EXPIRED` or `PENDING` with `expiresAt <= now`), plus `effectiveStatus` derivation for display.
+- Server actions: `createInvitationAction()`, `acceptInvitationAction()`, `declineInvitationAction()`, and `revokeInvitationAction()`.
+- Two-tab Members & Invitations interface at `/companies/[slug]/members`:
+  - Members tab: Search, multi-role filter via `MultiSelector`, count-based pagination.
+  - Invitations tab: Protected by `members.invite` permission, multi-status filter (default `PENDING`, multi-select, empty selection via `status=ALL`), multi-role filter (`inviteRoles`), pagination, and revocation action.
+- `InviteMemberDialog`: Modal with React Hook Form + Zod, `InputText`, `SimpleSelector`, server-side role options via `getAssignableInvitationRoles()`, duplicate prevention, and in-app notification creation for existing users.
+- `RevokeInvitationButton`: Action guarded by reusable `ConfirmationDialog` and atomic conditional updates in PostgreSQL.
+- Global toast foundation (`ToastProvider` / `useToast`) for ephemeral action feedback.
 
-This is the backend foundation for invitation lifecycle management; the current repository also includes the invite-member modal, member-page invite action, reusable member form primitives, and a global toast foundation. Full end-to-end runtime verification of the invitation flow and downstream notification surfaces remains pending.
+> Full end-to-end runtime verification of the newly added multi-status filtering combinations and revocation flows in the live database remains pending. Recipient-side invitation UI (`/home` or workspace) is the immediate next task.
 
 ---
 
@@ -349,19 +354,19 @@ Later, agents may execute controlled actions with explicit human approval.
 
 ## 7. Recommended Development Roadmap
 
-| Phase                              | Scope                                                                                | Status                                                                                                                       |
-| :--------------------------------- | :----------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------- |
-| **1. Foundation**                  | Next.js project, UI foundation, Tailwind CSS, shadcn/ui                              | **Completed**                                                                                                                |
-| **2. Authentication**              | Supabase SSR foundation, Google OAuth login, sessions, logout, protected routes      | **Completed**                                                                                                                |
-| **3. Organizations**               | Application users, companies, memberships, creation, listing, and workspace context  | **Completed**                                                                                                                |
-| **4. Authorization & Membership**  | Roles, permissions, member administration, notification foundation                   | **Completed in backend; UI toast foundation added**                                                                          |
-| **5. Invitations & Notifications** | Invitation flow, notification persistence, recipient discovery, frontend integration | **Backend complete; invite modal, reusable form components, and toast foundation implemented; runtime verification pending** |
-| **6. Business Core**               | Products, inventory, customers, invoices, and sales                                  | Planned                                                                                                                      |
-| **7. Dashboard**                   | Revenue, sales, inventory, and business metrics                                      | Planned                                                                                                                      |
-| **8. Local CEO Agent**             | AI chat + company context + read-only business tools                                 | Planned                                                                                                                      |
-| **9. AI Actions**                  | Recommendations, approvals, and controlled write operations                          | Planned                                                                                                                      |
-| **10. More Agents**                | Accountant, Marketing, HR, and specialized AI agents                                 | Planned                                                                                                                      |
-| **11. Employees**                  | Employee management and human-AI agent collaboration                                 | Planned                                                                                                                      |
+| Phase                              | Scope                                                                                | Status                                                                                                                                                              |
+| :--------------------------------- | :----------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **1. Foundation**                  | Next.js project, UI foundation, Tailwind CSS, shadcn/ui                              | **Completed**                                                                                                                                                       |
+| **2. Authentication**              | Supabase SSR foundation, Google OAuth login, sessions, logout, protected routes      | **Completed**                                                                                                                                                       |
+| **3. Organizations**               | Application users, companies, memberships, creation, listing, and workspace context  | **Completed**                                                                                                                                                       |
+| **4. Authorization & Membership**  | Roles, permissions, member administration, notification foundation                   | **Completed in backend; UI toast foundation added**                                                                                                                 |
+| **5. Invitations & Notifications** | Invitation flow, notification persistence, recipient discovery, frontend integration | **Backend complete; Members/Invitations tabs, multi-status & role filters, invite modal, revocation flow, and shared UI implemented; runtime verification pending** |
+| **6. Business Core**               | Products, inventory, customers, invoices, and sales                                  | Planned                                                                                                                                                             |
+| **7. Dashboard**                   | Revenue, sales, inventory, and business metrics                                      | Planned                                                                                                                                                             |
+| **8. Local CEO Agent**             | AI chat + company context + read-only business tools                                 | Planned                                                                                                                                                             |
+| **9. AI Actions**                  | Recommendations, approvals, and controlled write operations                          | Planned                                                                                                                                                             |
+| **10. More Agents**                | Accountant, Marketing, HR, and specialized AI agents                                 | Planned                                                                                                                                                             |
+| **11. Employees**                  | Employee management and human-AI agent collaboration                                 | Planned                                                                                                                                                             |
 
 ### Phase 2 — Authentication Breakdown
 
@@ -401,18 +406,26 @@ Email/password authentication and password recovery remain intentionally deferre
 ### Phase 5 — Invitations & Notifications Breakdown
 
 ```text
-5.1 Invitation Foundation        → Completed (backend)
-5.2 Invitation Flow              → Completed (backend)
-5.3 Invite Member Frontend       → Implemented in current repo; runtime verification pending
-5.4 Global Toast Foundation      → Implemented in current repo
-5.5 Invitation UX & Notifications → Pending beyond invite modal and toast layer
+5.1 Invitation Foundation            → Completed (backend)
+5.2 Invitation Flow                  → Completed (backend)
+5.3 Invite Member Frontend           → Implemented in current repo (runtime verification pending)
+5.4 Members & Invitations Tabs       → Implemented in current repo (runtime verification pending)
+5.5 Multi-Status & Role Filters      → Implemented in current repo (runtime verification pending)
+5.6 Invitation Revocation Flow       → Implemented in current repo (runtime verification pending)
+5.7 Shared UI & Toast Foundation     → Implemented in current repo
+5.8 Received Invitations (Recipient) → Next Task (planned)
+5.9 Notification Center & UX         → Planned
 ```
 
-- **5.1 Invitation Foundation**: `Invitation` entity stores `companyId`, invited email, target role, `inviterId`, hashed token, expiration, and lifecycle status. The database migration is applied and the backend token utilities use SHA-256 hashing.
+- **5.1 Invitation Foundation**: `Invitation` entity stores `companyId`, invited email, target role, `inviterId`, hashed token, expiration, and lifecycle status. The database migration is applied and backend token utilities use SHA-256 hashing.
 - **5.2 Invitation Flow**: Server actions validate company membership and permissions, normalize email input, check duplicate invitations and existing memberships, and prevent invalid status transitions through conditional database updates.
-- **5.3 Invite Member Frontend**: The Members page exposes the Invite Member action for eligible users using server-side permission checks and server-derived role options. The modal uses RHF + Zod, `InputText`, `SimpleSelector`, and the shared dialog primitives.
-- **5.4 Global Toast Foundation**: A provider is mounted once in the root layout and a `useToast()` hook exposes `success`, `error`, `warning`, and `info` variants. This is separate from persisted application notifications.
-- **5.5 Invitation UX & Notifications**: Sent Invitations tab, invitation recipient experience, notification bell, notification center, and full invitation lifecycle UI remain pending.
+- **5.3 Invite Member Frontend**: The Members page exposes the Invite Member action for eligible users using server-side permission checks and server-derived role options. The modal uses RHF + Zod, `InputText`, `SimpleSelector`, and shared dialog primitives.
+- **5.4 Members & Invitations Tabs**: `/companies/[slug]/members` supports two tabs (`Members` and `Invitations`). Direct access to `tab=invitations` is guarded server-side by `requirePermission(context, "members.invite")`.
+- **5.5 Multi-Status & Role Filters**: Powered by `MultiSelector`. The Invitations tab supports selecting multiple statuses (`PENDING`, `ACCEPTED`, `DECLINED`, `EXPIRED`, `REVOKED`) with default `PENDING` view, `status=ALL` for empty selection, and `inviteRoles` for invitable roles. Backend queries dynamically handle effective expiration.
+- **5.6 Invitation Revocation Flow**: Authorized members (`OWNER`, `ADMIN`) can revoke pending invitations for allowed roles via `RevokeInvitationButton`, `ConfirmationDialog`, and `revokeInvitationAction()`, with immediate toast feedback and route refresh.
+- **5.7 Shared UI & Toast Foundation**: A lightweight global toast system (`ToastProvider` / `useToast`) mounted in the root layout, along with shared UI controls (`MultiSelector`, `ConfirmationDialog`, `SimpleSelector`, `InputText`, `Button`, `Typography`, `AppIcon`).
+- **5.8 Received Invitations (Recipient UX)**: Recipient-side experience allowing authenticated users to see their pending invitations (`getMyPendingInvitations`), accept, or decline them.
+- **5.9 Notification Center & UX**: Global notification bell, unread count badge, notification popover, and notification center.
 
 ---
 
@@ -431,13 +444,26 @@ Email/password authentication and password recovery remain intentionally deferre
    Roles must never be stored globally on the user.
 
 5. **Server-side authorization**  
-   Frontend visibility is never the sole security layer.
+   Frontend visibility is never the sole security layer. All Server Actions, Route Handlers, and queries must enforce authorization server-side.
 
 6. **Progressive data modeling**  
    Business tables are introduced when their corresponding features are implemented rather than designing the entire future schema upfront.
 
-7. **Shared UI primitives first (`components/ui`)**  
-   Whenever appropriate, feature code MUST reuse existing components from `components/ui` (such as `Typography`, `AppIcon`, `Button`, `Input`, `Dialog`, `Select`, `Tooltip`, etc.) rather than writing raw HTML text tags or duplicating control styles. For typography specifically, always use `<Typography variant="...">` for headings, subtitles, body text, labels, captions, and badges.
+7. **Shared UI Architecture & Component Reuse Conventions**  
+   Local CEO enforces a strict component-first design system. Developers and AI agents MUST adhere to the following conventions:
+   - **Inspect First**: Before creating a new UI component, inspect `components/ui/` and identify whether a suitable reusable component already exists.
+   - **Avoid Native Duplication**: Prefer existing UI components over native HTML elements with duplicated styling whenever appropriate.
+   - **Typography**: Always use `<Typography variant="...">` for application text, headings, subtitles, labels, captions, and badges rather than raw HTML typography tags.
+   - **Button**: Use the shared `Button` component for application actions rather than repeatedly styling native `<button>` tags.
+   - **AppIcon**: Use `AppIcon` instead of importing Lucide icons directly into feature components or introducing inline SVG icons when the icon exists in the registry. If an icon is missing, extend `components/ui/app-icon.tsx` instead of bypassing it.
+   - **Form Controls**: Use `InputText` for text inputs and `SimpleSelector` for single-option selection.
+   - **MultiSelector**: Use `MultiSelector` for selecting multiple options. `MultiSelector` must remain strictly generic and reusable—it must never contain feature-specific knowledge about roles, invitations, companies, or database models.
+   - **Filter Responsibilities**: Feature filter components own URL parameter management and business-specific filtering logic; shared UI selectors remain presentation-oriented and controlled via props.
+   - **Confirmation Dialogs**: Use `ConfirmationDialog` for confirmation workflows (such as deletion, revocation, or destructive actions) instead of creating one-off confirmation dialogs or using `window.confirm()`.
+   - **Feedback**: Use the global toast system (`useToast()`) for ephemeral success, error, warning, and informational feedback.
+   - **Primitives & Accessibility**: Prefer existing Base UI/shadcn primitives, preserving accessibility, keyboard behavior, semantic HTML, and responsive styling. Avoid unnecessary external dependencies.
+   - **CRITICAL RULE FOR FUTURE AI AGENTS**: If you are asked to create or modify a UI feature but do not have enough context about the existing shared components, DO NOT guess their APIs or recreate them. First inspect their implementations in the repository. If the relevant component source is unavailable or cannot be inspected, explicitly ask the user to share the component code before proceeding:
+     > _"Before implementing this component, please share your existing Button, Typography, MultiSelector, or other relevant UI component so I can reuse your established API and styling conventions."_
 
 8. **Notification Read State vs Domain Action State**  
    Notification read state (`readAt`) and domain action state (e.g. `invitation.status = PENDING`) are separate concerns. Viewing or marking a notification as read does NOT accept or decline an invitation. Notification read state must never be used as the source of truth for domain lifecycle states.

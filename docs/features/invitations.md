@@ -2,119 +2,224 @@
 
 ## Overview
 
-The invitation foundation is now implemented for Local CEO. Invitations are company-scoped pending access offers that can be created, queried, accepted, declined, and revoked only with server-side validation.
+The invitation system provides company-scoped, pending access offers that can be created, queried, filtered, revoked, accepted, and declined under strict server-side validation and role-based authorization.
 
-The current repository also includes the Invite Member UI on the company Members page, along with the reusable form controls used by that interface. This frontend is implemented and wired to the server action in the current repo state, but the full end-to-end invitation lifecycle still needs runtime verification across Supabase and browser flows.
+During the November 22, 2026 development session, the company workspace members area (`/companies/[slug]/members`) was expanded from a standalone member list into a two-tab interface:
 
-## Current Implementation Scope
+1. **Members**: The existing directory of active company members with server-side search, multi-role filtering, and pagination.
+2. **Invitations**: A comprehensive directory of sent company invitations featuring multi-status filtering, multi-role filtering, pagination, effective expiration status derivation, and an invitation revocation flow guarded by a confirmation dialog.
 
-### Database model
+Additionally, the invitation creation modal (`InviteMemberDialog`) is integrated with the `createInvitationAction()` server action, providing client-side and server-side validation, duplicate prevention, role-policy enforcement, seven-day expiration, and global toast notifications.
 
-`Invitation` stores:
+> **Implementation vs. Verification Note**: While the invitation creation flow and base UI components passed lint, type-check, and visual review in earlier testing, the newly introduced multi-status filter combinations, empty status selection, and confirmation dialog revocation flow are implemented in code but await full end-to-end runtime verification in the live database.
 
-- `companyId`
-- `inviterId`
-- `invitedEmail`
-- `role`
-- `tokenHash`
-- `expiresAt`
-- `status`
-- lifecycle timestamps: `acceptedAt`, `declinedAt`, `revokedAt`
+---
 
-The persisted status enum is:
+## Architecture & Data Model
 
-- `PENDING`
-- `ACCEPTED`
-- `DECLINED`
-- `EXPIRED`
-- `REVOKED`
+### Database Entity (`Invitation`)
 
-### Server-side utilities
+Defined in `prisma/schema.prisma` and mapped to PostgreSQL `public.Invitation`:
 
-- `lib/invitations/service.ts` handles email normalization, token generation, SHA-256 hashing, expiry checks, and invitation URL helpers.
-- `lib/invitations/policy.ts` defines the invitation role matrix and actor-to-target restrictions.
-- `lib/invitations/recipient.ts` enforces verified authentication and email matching before a user can accept or decline their own invitation.
+| Field          | Type             | Description                                           |
+| :------------- | :--------------- | :---------------------------------------------------- |
+| `id`           | UUID (PK)        | Unique invitation identifier                          |
+| `companyId`    | UUID (FK)        | Scoped company offering access                        |
+| `inviterId`    | UUID (FK)        | User who created the invitation                       |
+| `invitedEmail` | String (254)     | Normalized, lowercase target recipient email          |
+| `role`         | String           | Target role (`ADMIN`, `MANAGER`, `FINANCE`, `VIEWER`) |
+| `tokenHash`    | String (64)      | SHA-256 hash of the secure invitation token           |
+| `expiresAt`    | DateTime         | Timestamp when invitation expires (default: 7 days)   |
+| `status`       | InvitationStatus | Persisted lifecycle status enum                       |
+| `acceptedAt`   | DateTime?        | Timestamp when accepted by recipient                  |
+| `declinedAt`   | DateTime?        | Timestamp when declined by recipient                  |
+| `revokedAt`    | DateTime?        | Timestamp when revoked by authorized member           |
+| `createdAt`    | DateTime         | Creation timestamp                                    |
+| `updatedAt`    | DateTime         | Last update timestamp                                 |
 
-### Frontend invite flow
+### Persisted Status Enum (`InvitationStatus`)
 
-- `app/companies/[slug]/members/page.tsx` resolves the current company context and evaluates server-side invite permissions before rendering the button.
-- `features/companies/components/company-members.tsx` passes the company slug and server-derived assignable role list to the dialog.
-- `features/invitations/components/invite-member-dialog.tsx` uses React Hook Form + Zod, `InputText`, and `SimpleSelector` to validate the email and role, show form errors, and submit to `createInvitationAction()`.
-- The current repo state calls the real server action during submission; the form keeps the modal open on server-side failure and preserves entered values.
+- `PENDING`: Access offer is active and awaiting recipient response.
+- `ACCEPTED`: Offer accepted; membership created.
+- `DECLINED`: Offer explicitly declined by recipient.
+- `EXPIRED`: Offer passed expiration date (or marked expired during reconciliation).
+- `REVOKED`: Offer cancelled by an authorized company member.
 
-## Invitation workflows implemented
+### Effective Expiration Status
 
-### Recipient queries
+An invitation whose database status is `PENDING` but whose `expiresAt <= now()` is effectively expired. Local CEO handles this at both display and query layers:
 
-- `getMyPendingInvitations()` returns pending, unexpired invitations for the authenticated user based on the verified email.
-- Invitations for companies where the user is already a member are excluded.
-- The current result set is limited to 50 invitations.
+- **Query Level (`getCompanyInvitations`)**: When filtering for `PENDING`, the backend query requires `expiresAt > now`. When filtering for `EXPIRED`, the backend constructs an `OR` condition matching both persisted `EXPIRED` status and `PENDING` invitations with `expiresAt <= now`.
+- **Display Level**: `effectiveStatus` derives `"EXPIRED"` if `status === "PENDING" && expiresAt <= now`. Badges and revocation controls evaluate `effectiveStatus`.
 
-### Company-scoped invitation listing
+---
 
-- `getCompanyInvitations()` provides authorized listing for a company.
-- It supports pagination and persisted `status` filtering.
-- It derives `effectiveStatus` for display when a pending invitation has passed its expiry time, while preserving the underlying persisted state.
+## Frontend Workspace Implementation (`/companies/[slug]/members`)
 
-### Invitation creation
+### Tabbed Navigation
 
-- `createInvitationAction()` validates:
-  - authenticated company membership,
-  - `members.invite` permission,
-  - target role via policy,
-  - duplicate pending invitation checks,
-  - current membership exclusion,
-  - expired-outstanding invitation cleanup.
-- Existing application users receive an in-app notification when invited.
-- Users without an existing application account remain discoverable after verified authentication via email matching.
+The page layout (`app/companies/[slug]/members/page.tsx` and `features/companies/components/company-members.tsx`) hosts two tabs:
 
-### Invitation actions
+- **Members Tab** (`?tab=members` or default): Scoped member directory with name/email search, multi-role filter (`roles`), and count-based pagination. Accessible to any member with `members.read`.
+- **Invitations Tab** (`?tab=invitations`): Scoped sent invitations directory. Direct access is protected server-side:
+  ```ts
+  if (tab === "invitations") {
+    requirePermission(context, "members.invite");
+  }
+  ```
+  Users without `members.invite` cannot see or navigate to the Invitations tab.
 
-- `acceptInvitationAction()` atomically accepts a pending invitation and creates the corresponding `CompanyMembership`.
-- `declineInvitationAction()` marks the invitation as `DECLINED` without creating a membership.
-- `revokeInvitationAction()` allows authorized company members to cancel a pending invitation.
-- State transitions use conditional database operations to prevent invalid lifecycle races.
+### URL Query Parameter Contract
 
-## Authorization rules implemented
+| Parameter     | Applies To  | Type / Format                       | Default      | Behavior                                                                                                                                                                                             |
+| :------------ | :---------- | :---------------------------------- | :----------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tab`         | Page        | `"members"` \| `"invitations"`      | `"members"`  | Selects active view. Direct access to `"invitations"` requires `members.invite`.                                                                                                                     |
+| `page`        | Both        | Positive safe integer               | `1`          | Pagination page number. Reset (deleted) upon filter changes.                                                                                                                                         |
+| `search`      | Members     | String                              | `""`         | Case-insensitive search on member name and email. Debounced 350ms.                                                                                                                                   |
+| `roles`       | Members     | Comma-separated roles               | None (`ALL`) | Filters members by `BUILT_IN_ROLES` (`OWNER`, `ADMIN`, `MANAGER`, `FINANCE`, `VIEWER`).                                                                                                              |
+| `status`      | Invitations | Comma-separated statuses \| `"ALL"` | `"PENDING"`  | Filters invitations by effective status. Defaults to `PENDING` if omitted. If all options deselected in UI, uses `status=ALL` (backend fetches all statuses). If reset to default, param is omitted. |
+| `inviteRoles` | Invitations | Comma-separated roles               | None (`ALL`) | Filters invitations by `INVITABLE_ROLES` (`ADMIN`, `MANAGER`, `FINANCE`, `VIEWER`).                                                                                                                  |
 
-Only `OWNER` and `ADMIN` have the `members.invite` permission.
+### Status Filtering Rules for Invitations
 
-### Assignable invitation roles
+1. **Default View**: When no `status` query parameter is present, the page displays `PENDING` invitations only.
+2. **Multi-Selection**: Users can check any combination of `PENDING`, `ACCEPTED`, `DECLINED`, `EXPIRED`, and `REVOKED` via `MultiSelector`.
+3. **Empty Selection (`ALL`)**: Deselecting all status checkboxes sends `status=ALL` in the URL. The server translates this into an empty status condition list (`statuses = []`), querying invitations without status restriction.
+4. **Default Restoration**: Selecting solely `PENDING` deletes the `status` URL parameter, restoring clean canonical URLs.
+5. **Clear Filters**: Clicking "Clear filters" removes both `status` and `inviteRoles` parameters and resets `page`, immediately returning to default `PENDING` view.
+6. **Pagination Reset**: Every status or role filter change explicitly deletes the `page` parameter, returning users to page 1.
 
-| Actor role | Allowed target roles                    |
-| :--------- | :-------------------------------------- |
-| `OWNER`    | `ADMIN`, `MANAGER`, `FINANCE`, `VIEWER` |
-| `ADMIN`    | `MANAGER`, `FINANCE`, `VIEWER`          |
-| `MANAGER`  | None                                    |
-| `FINANCE`  | None                                    |
-| `VIEWER`   | None                                    |
+---
 
-Additional rules:
+## Invitation Workflows
 
-- Assignment and revocation enforce the same role restrictions.
-- `OWNER` cannot be assigned through ordinary invitations.
-- Invitations never create memberships before acceptance.
-- Company authorization is enforced server-side using `getCompanyContext()` and `requirePermission()`.
-- A user may receive invitations from multiple companies.
-- Only the authenticated recipient with a matching verified email may accept or decline.
+### 1. Invitation Creation (`InviteMemberDialog`)
 
-## Notification relationship
+- **Component**: `features/invitations/components/invite-member-dialog.tsx`
+- **Trigger**: "Invite Member" button rendered in page header when `canInvite` is true and `allowedRoles.length > 0`.
+- **Form Architecture**: React Hook Form with `@hookform/resolvers/zod`. Uses reusable `InputText` and `SimpleSelector`.
+- **Form Schema**:
+  - `email`: Required, valid email format, max 254 chars, trimmed, lowercased.
+  - `role`: Required, trimmed, validated against `allowedRoles`.
+- **Server Action**: `createInvitationAction({ companySlug, email, role })` in `lib/actions/invitations.ts`.
+  - Validates `members.invite` permission via `getCompanyContext()`.
+  - Enforces `canAssignInvitationRole(actorRole, targetRole)`.
+  - Normalizes target email.
+  - Reconciles any previously expired pending invitations for that email.
+  - Rejects creation if target email is already an active company member (`ALREADY_MEMBER`).
+  - Rejects creation if an active pending invitation already exists (`ALREADY_INVITED`).
+  - Generates cryptographically secure random token, stores SHA-256 hash.
+  - Sets 7-day expiration (`INVITATION_DURATION_DAYS = 7`).
+  - Creates in-app `Notification` record if recipient already has an application `User` account.
+  - Revalidates `/companies/[slug]/members` and `/home`.
+- **Feedback & State**:
+  - Success: Closes dialog, resets form state, issues `toast.success("Invitation created successfully.")`.
+  - Failure: Preserves user input, keeps modal open, displays server error message in form root alert area.
 
-Invitation events are the first concrete use case for the generic notification foundation. Notification persistence is separate from invitation lifecycle state.
+### 2. Company Invitations Directory (`CompanyInvitationsList`)
 
-> A notification being read does not accept or decline an invitation, and a pending invitation is not considered accepted simply because a user viewed it.
+- **Component**: `features/invitations/components/company-invitations-list.tsx`
+- **Query**: `getCompanyInvitations(companySlug, options)` in `features/invitations/queries.ts`.
+- **Features**:
+  - Displays total count (e.g., "1 invitation" or "12 invitations").
+  - Table grid displaying: Email, Role badge (`MemberRoleBadge`), Status badge (`InvitationStatusBadge`), Created date, Expiration date, and Actions.
+  - Responsive horizontally scrollable table container with a minimum width for the grid; the header is not sticky.
+  - Shared `Pagination` component for page navigation.
+  - Suspense loading state with `CompanyMembersTableSkeleton`.
+  - Empty state when no invitations match filters vs. when no invitations exist.
 
-## Current limitations and deferred work
+### 3. Invitation Revocation (`RevokeInvitationButton`)
 
-- No background expiration job currently reconciles expired invitations.
-- `effectiveStatus` is display-oriented; the persisted status may remain `PENDING` until a manual or conditional status update occurs.
-- Status filtering in company invitation queries uses the persisted database status, not the derived effective status.
-- Original invitation tokens are stored as hashes and cannot be recovered for future email delivery.
-- Pending invitations are not automatically revoked if the inviter later loses invite privileges.
-- Sent Invitations tab, recipient action UI, and notification center remain pending.
-- The invitation submit flow is present in the repo, but full runtime verification of creation, duplicate rejection, and downstream acceptance remains pending.
-- Security and concurrency coverage still needs broader expansion.
+- **Component**: `features/invitations/components/revoke-invitation-button.tsx`
+- **Eligibility**:
+  - An invitation can only be revoked if `invitation.effectiveStatus === "PENDING"` AND `allowedRoles.includes(invitation.role)`.
+  - If ineligible, a dash (`—`) is rendered in the Actions column.
+- **Workflow**:
+  1. User clicks "Revoke" button (`variant="ghost"`, destructive text).
+  2. Reusable `ConfirmationDialog` opens:
+     - Title: "Revoke invitation"
+     - Description: "Are you sure you want to revoke the invitation for [email]? This action cannot be undone."
+     - Confirm button: "Revoke" (`destructive={true}`).
+  3. On confirmation, invokes `revokeInvitationAction({ companySlug, invitationId })`.
+  4. Server-side execution:
+     - Verifies `members.invite` permission.
+     - Scopes query to `companyId` (tenant isolation).
+     - Verifies actor's role can manage target invitation's role (`canAssignInvitationRole`).
+     - Verifies status is `PENDING`.
+     - Executes atomic conditional update:
+       ```ts
+       prisma.invitation.updateMany({
+         where: {
+           id: invitation.id,
+           companyId,
+           status: "PENDING",
+           expiresAt: { gt: now },
+         },
+         data: { status: "REVOKED", revokedAt: now },
+       });
+       ```
+     - Revalidates paths (`/companies/[slug]/members`, `/home`).
+  5. UI feedback:
+     - Success: Closes confirmation dialog, triggers `toast.success("Invitation revoked successfully.")`, and triggers `router.refresh()`.
+     - Error: Displays `toast.error(result.error)`.
 
-## Security stance
+---
 
-This feature is backed by server-side authorization, verified email checks, and conditional updates to avoid invalid status changes and duplicate membership creation. The browser is never treated as a trusted source of invitation identity or permission.
+## Authorization & Policy Matrix
+
+### Permissions Required
+
+- `members.read`: View company members directory.
+- `members.invite`: View Invitations tab, view "Invite Member" button, submit invitation creation, view pending invitation revocation buttons, execute invitation revocation.
+
+### Role Assignment Matrix (`lib/invitations/policy.ts`)
+
+| Actor Role | Can Invite? | Allowed Target Roles (`INVITABLE_ROLES`) |
+| :--------- | :---------: | :--------------------------------------- |
+| `OWNER`    |     Yes     | `ADMIN`, `MANAGER`, `FINANCE`, `VIEWER`  |
+| `ADMIN`    |     Yes     | `MANAGER`, `FINANCE`, `VIEWER`           |
+| `MANAGER`  |     No      | None                                     |
+| `FINANCE`  |     No      | None                                     |
+| `VIEWER`   |     No      | None                                     |
+
+> **Critical RBAC Rule**: `OWNER` cannot be assigned via invitation. Ownership transfers belong to Phase 4.3 and require `ownership.transfer` permission.
+
+---
+
+## Shared UI Components Utilized
+
+During this implementation, reusable UI components were introduced or consumed:
+
+1. **`MultiSelector`** (`components/ui/MultiSelector.tsx` in the latest shared imports; verify exact filename casing in the current repository):
+   - Generic popover multi-select built with `@base-ui/react/popover`.
+   - Used for both Members role filtering and Invitations status & role filtering.
+   - Remains strictly presentation-oriented with zero domain logic.
+2. **`ConfirmationDialog`** (`components/ui/confirmation-dialog.tsx`):
+   - Generic modal dialog for destructive or high-impact confirmations.
+   - Used for invitation revocation.
+3. **`SimpleSelector`** (`components/ui/simple-selector.tsx`):
+   - Single-option select wrapper over Base UI / shadcn Select.
+   - Used in `InviteMemberDialog` for role selection.
+4. **`InputText`** (`components/ui/input-text.tsx`):
+   - Controlled/uncontrolled input with label, helper text, and accessible error styling.
+5. **`Button`** (`components/ui/button.tsx`) & **`Typography`** (`components/ui/typography.tsx`):
+   - Reused across all screens following design system conventions.
+6. **`AppIcon`** (`components/ui/app-icon.tsx`):
+   - Central icon registry extended with `info` and `alert-triangle`.
+7. **`ToastProvider` / `useToast`** (`components/ui/toaster.tsx`):
+   - Global ephemeral feedback for creation and revocation actions.
+
+---
+
+## Current Status & Next Tasks
+
+| Area                                    | Status                       | Details                                                                                                       |
+| :-------------------------------------- | :--------------------------- | :------------------------------------------------------------------------------------------------------------ |
+| **Backend Invitation Foundation**       | **Completed**                | Models, tokens, hashing, recipient matching, actions, queries.                                                |
+| **Invite Member Modal**                 | **Implemented**              | RHF + Zod form, server action integration, toast feedback.                                                    |
+| **Members / Invitations Tabs**          | **Implemented**              | Protected tab switching, URL synchronization.                                                                 |
+| **Multi-Status & Role Filters**         | **Implemented (Unverified)** | Multi-select filters, default PENDING, `ALL` handling, effective expiration queries. Runtime testing pending. |
+| **Invitation Revocation Flow**          | **Implemented (Unverified)** | Revoke button, confirmation dialog, atomic server action, toast feedback. Runtime testing pending.            |
+| **Received Invitations (Recipient UX)** | **Planned (Next)**           | UI for authenticated users to view (`getMyPendingInvitations`), accept, and decline invitations.              |
+| **Notification Center / Bell**          | **Planned**                  | Global header bell, unread count badge, notification popover.                                                 |
+| **Outbound Email Delivery**             | **Deferred**                 | Background email delivery service (tokens currently stored as SHA-256 hashes).                                |

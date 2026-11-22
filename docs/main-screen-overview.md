@@ -69,17 +69,26 @@ If the user has no companies yet, or has room to add another one, the screen sho
 
 When the company list grows, the interface handles navigation through pages so the screen remains manageable and easy to browse.
 
-### Workspace Members
+### Workspace Members & Invitations
 
-Inside a company workspace, the members area provides a dedicated directory for the current company’s access list. It supports:
+Inside a company workspace at `/companies/[slug]/members`, the directory provides a comprehensive management area with two dedicated tabs:
 
-- search by member name or email
-- role-based filtering
-- server-side pagination
-- loading skeletons while new results are fetched
-- stable filter controls that remain visible during reloads
+1. **Members Tab**:
+   - Active members directory for the company access list.
+   - Case-insensitive search by member name or email.
+   - Multi-role filtering via `MultiSelector`.
+   - Server-side count-based pagination.
+   - Loading skeletons while new results are fetched without unmounting filter controls.
 
-This member list is read-only for the current phase and reflects the company’s actual membership data without exposing unauthorized operations.
+2. **Invitations Tab**:
+   - Directory of sent company invitations (accessible to members with `members.invite`).
+   - Multi-status filtering (`PENDING`, `ACCEPTED`, `DECLINED`, `EXPIRED`, `REVOKED`) with default `PENDING` view.
+   - Multi-role filtering for invitation targets.
+   - Derivation of effective expiration status for display and query filtering.
+   - Revocation workflow for eligible pending invitations, guarded by a confirmation dialog.
+
+3. **Header Actions**:
+   - Authorized members (`OWNER`, `ADMIN`) can launch the "Invite Member" modal to send new invitations with 7-day expiration, duplicate prevention, and immediate toast feedback.
 
 ## Summary
 

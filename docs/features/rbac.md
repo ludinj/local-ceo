@@ -130,20 +130,20 @@ Domain invariant workflows belong to Phase 4.3 and are not part of permission ma
 - Frontend visibility is **never** the security boundary.
 - All Server Actions, API routes, and data access layers must independently execute `requirePermission` server-side.
 
-### Frontend invite visibility and role filtering
+### Members & Invitations Workspace Protection
 
-The Members page currently gates the Invite Member button using the server-side permission evaluation:
+The Members page at `/companies/[slug]/members` enforces layered server-side security:
 
-- `hasPermission(context, "members.invite")`
-- `getAssignableInvitationRoles(context.membership.role)`
-
-This allows `OWNER` and `ADMIN` to see the action and receive the allowed target roles. `MANAGER`, `FINANCE`, and `VIEWER` do not receive the Invite Member UI. The frontend does not duplicate the role-assignment matrix or enforce invitation eligibility beyond the server-supplied list.
+1. **Route Level Access**: Always enforces `requirePermission(context, "members.read")`.
+2. **Invitations Tab Direct Access**: If `tab === "invitations"`, the server page component explicitly enforces `requirePermission(context, "members.invite")`. A non-permitted member tampering with query parameters will encounter an `AuthorizationError`.
+3. **Invite Member Visibility**: The "Invite Member" action button is only rendered if `hasPermission(context, "members.invite")` evaluates to true and `getAssignableInvitationRoles(role)` returns at least one assignable role.
+4. **Revocation Button Visibility**: Only rendered for invitations where `invitation.effectiveStatus === "PENDING"` and the actor's assignable roles include the invitation's role (`allowedRoles.includes(invitation.role)`).
 
 ---
 
-## 7. Invitation Role Policy (Implemented Backend)
+## 7. Invitation Role Policy & Revocation Authorization
 
-Invitation creation and revocation are constrained by the same server-side authorization model used elsewhere in the application.
+Invitation creation and revocation are constrained by the server-side authorization model and role policy.
 
 ### Role assignment matrix for invitations
 
@@ -158,12 +158,13 @@ Invitation creation and revocation are constrained by the same server-side autho
 ### Enforcement rules
 
 - Only `OWNER` and `ADMIN` have the `members.invite` permission.
-- Assignment and revocation enforce the same role restrictions through `canAssignInvitationRole()` and the associated permission checks.
+- Assignment and revocation enforce the same role restrictions through `canAssignInvitationRole()` and associated permission checks. An `ADMIN` cannot revoke an invitation issued for an `ADMIN` (since `ADMIN` cannot assign `ADMIN`), nor can any actor revoke an invitation for a role above or equal to their assignment policy.
 - `OWNER` cannot be assigned through ordinary invitations; the policy intentionally excludes `OWNER` from `INVITABLE_ROLES`.
 - Invitations never create `CompanyMembership` records before acceptance.
 - Company authorization is enforced inside server actions using `getCompanyContext()` and `requirePermission()`.
 - A user may receive invitations from multiple companies, but each invitation is validated against the target email and company membership state before it can be accepted.
 - Only the authenticated recipient whose verified email matches the invited address may accept or decline a pending invitation.
+- Revocation actions perform an atomic conditional update (`status: "PENDING", expiresAt: { gt: now }`) inside Prisma to prevent race conditions against concurrent acceptance.
 
 ### Related implementation
 
